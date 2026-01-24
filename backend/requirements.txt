@@ -1,0 +1,11 @@
+fastapi
+uvicorn
+sqlalchemy
+aiomysql
+aiofiles
+reportlab
+cryptography
+google-genai
+matplotlib
+numpy
+python-multipart
