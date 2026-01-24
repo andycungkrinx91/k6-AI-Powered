@@ -23,11 +23,11 @@ K6 AI Powered is a full‑stack performance testing platform that combines **k6 
   </tr>
   <tr>
     <td align="center"><b>Result Load Test</b></td>
-    <td align="center"><b>Running Builder Mode</b></td>
+    <td align="center"><b>Upload Custom K6 Script</b></td>
   </tr>
   <tr>
     <td><a href="https://raw.githubusercontent.com/andycungkrinx91/k6-AI-Powered/master/images/load-test-result.png" target="_blank"><img src="https://raw.githubusercontent.com/andycungkrinx91/k6-AI-Powered/master/images/load-test-result.png" width="400px"/></a></td>
-    <td><a href="https://raw.githubusercontent.com/andycungkrinx91/k6-AI-Powered/master/images/builder-mode-running.png" target="_blank"><img src="https://raw.githubusercontent.com/andycungkrinx91/k6-AI-Powered/master/images/builder-mode-running.png" width="400px"/></a></td>
+    <td><a href="https://raw.githubusercontent.com/andycungkrinx91/k6-AI-Powered/master/images/k6-custom-script.png" target="_blank"><img src="https://raw.githubusercontent.com/andycungkrinx91/k6-AI-Powered/master/images/k6-custom-script.png" width="400px"/></a></td>
   </tr>
   <tr>
     <td align="center"><b>Result History</b></td>
