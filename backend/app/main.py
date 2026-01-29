@@ -35,11 +35,21 @@ if not IS_VERCEL:
 
 # ================= APP =================
 app = FastAPI()
+@app.options("/{path:path}")
+async def preflight_handler(request: Request):
+    return {}
 
 # ================= CORS =================
+raw_origins = os.getenv("CORS_ORIGINS", "")
+ALLOW_ORIGINS = [
+    origin.strip()
+    for origin in raw_origins.split(",")
+    if origin.strip()
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOW_ORIGINS or ["http://localhost:3000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
