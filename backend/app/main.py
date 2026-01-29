@@ -71,6 +71,17 @@ def is_malicious(content: str) -> bool:
             return True
     return False
 
+# ================= VERCEL CONFIG ===================
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
+
+# ================= HEALTH CHECK ===================
+@app.get("/api/health")
+def health_check():
+    return {"status": "healthy"}
+
+
 # ================= RUN TEST (SSE) =================
 @app.post("/api/run")
 async def run_test(req: RunRequest, x_api_key: str = Header(...)):

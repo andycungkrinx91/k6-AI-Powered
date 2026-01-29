@@ -79,8 +79,8 @@ Frontend (Next.js)  ⇄  Backend (FastAPI)  ⇄  k6 Engine  ⇄  Gemini AI  ⇄ 
 
 📘 Detailed backend documentation:
 
-➡ **[Backend README](https://github.com/andycungkrinx91/andycungkrinx91/k6-AI-Powered/master/blob/backend/README.md)** <br>
-➡ **[API README](https://github.com/andycungkrinx91/andycungkrinx91/k6-AI-Powered/master/blob/backend/API_README.md)**
+➡ **[Backend README](https://github.com/andycungkrinx91/k6-AI-Powered/blob/master/backend/README.md)** <br>
+➡ **[API README](https://github.com/andycungkrinx91/k6-AI-Powered/blob/master/backend/API_README.md)**
 
 ---
 
@@ -96,7 +96,7 @@ Frontend (Next.js)  ⇄  Backend (FastAPI)  ⇄  k6 Engine  ⇄  Gemini AI  ⇄ 
 
 📘 Detailed frontend documentation:
 
-➡ **[Frontend README](https://github.com/andycungkrinx91/andycungkrinx91/k6-AI-Powered/master/blob/frontend/README.md)**
+➡ **[Frontend README](https://github.com/andycungkrinx91/k6-AI-Powered/blob/master/frontend/README.md)**
 
 ---
 
