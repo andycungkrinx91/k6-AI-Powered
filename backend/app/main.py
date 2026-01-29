@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Header, HTTPException, UploadFile, File, Form
+from fastapi import FastAPI, Header, HTTPException, UploadFile, File, Form, Request, Response
 from fastapi.responses import StreamingResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from .schemas import RunRequest
@@ -35,11 +35,11 @@ if not IS_VERCEL:
 
 # ================= APP =================
 app = FastAPI()
-@app.options("/{path:path}")
-async def preflight_handler(request: Request):
-    return {}
 
 # ================= CORS =================
+@app.options("/{path:path}")
+async def preflight_handler(request: Request):
+    return Response(status_code=204)
 raw_origins = os.getenv("CORS_ORIGINS", "")
 ALLOW_ORIGINS = [
     origin.strip()
