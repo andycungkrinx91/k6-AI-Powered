@@ -71,11 +71,6 @@ async def startup():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
-# ================= AUTH =================
-def verify_key(x_api_key: str):
-    if x_api_key != API_KEY:
-        raise HTTPException(status_code=401, detail="Unauthorized")
-
 # ================= SCRIPT SECURITY =================
 SUSPICIOUS_PATTERNS = [
     r"\bchild_process\b",
