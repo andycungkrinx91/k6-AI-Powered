@@ -3,73 +3,57 @@ from fastapi.responses import StreamingResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from .schemas import RunRequest
 from sqlalchemy import select, delete
+from .k6_runner import run_k6_stream
 from .k6_parser import parse_k6_ndjson
 from .scoring import calculate_score
 from .gemini import analyze
+from .pdf_generator import generate
 from .database import SessionLocal, engine, Base
 from .models import LoadTest
-
 import uuid
 import os
 import json
 import tempfile
+import subprocess
 import re
 import random
 import hashlib
 import time
 
-# ================= ENV =================
-IS_VERCEL = os.getenv("VERCEL") == "1"
-
-API_KEY = os.getenv("BACKEND_API_KEY")
-CAPTCHA_SECRET = os.getenv("CAPTCHA_SECRET")
-
-RESULT_DIR = (
-    tempfile.gettempdir()
-    if IS_VERCEL
-    else os.getenv("RESULT_DIR", "./results")
-)
-
-if not IS_VERCEL:
-    os.makedirs(RESULT_DIR, exist_ok=True)
-
-# ================= APP =================
 app = FastAPI()
 
-# ================= CORS =================
-@app.options("/{path:path}")
-async def preflight_handler(request: Request):
-    return Response(status_code=204)
-raw_origins = os.getenv("CORS_ORIGINS", "")
-ALLOW_ORIGINS = [
-    origin.strip()
-    for origin in raw_origins.split(",")
-    if origin.strip()
-]
+# ================= CORS (FROM .env) =================
+raw_origins = os.getenv("CORS_ORIGINS", "http://k6.local,http://localhost:3000")
+ALLOW_ORIGINS = [o.strip() for o in raw_origins.split(",") if o.strip()]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=ALLOW_ORIGINS or ["http://localhost:3000"],
+    allow_origins=ALLOW_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# ================= HEALTH =================
-@app.get("/api/health")
-def health():
-    return {
-        "status": "ok",
-        "platform": "vercel" if IS_VERCEL else "server"
-    }
+# ================= OPTIONS (PRE-FLIGHT) =================
+@app.options("/{path:path}")
+async def preflight_handler(request: Request):
+    return Response(status_code=204)
+
+API_KEY = os.getenv("BACKEND_API_KEY")
+CAPTCHA_SECRET = os.getenv("CAPTCHA_SECRET")
+RESULT_DIR = os.getenv("RESULT_DIR", "./results")
+os.makedirs(RESULT_DIR, exist_ok=True)
 
 # ================= AUTO CREATE TABLE =================
 @app.on_event("startup")
 async def startup():
-    if IS_VERCEL:
-        return
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+
+# ================= AUTH =================
+def verify_key(x_api_key: str | None):
+    if not x_api_key or x_api_key != API_KEY:
+        raise HTTPException(status_code=401, detail="Unauthorized")
 
 # ================= SCRIPT SECURITY =================
 SUSPICIOUS_PATTERNS = [
@@ -85,26 +69,15 @@ SUSPICIOUS_PATTERNS = [
 ]
 
 def is_malicious(content: str) -> bool:
-    for pattern in SUSPICIOUS_PATTERNS:
-        if re.search(pattern, content, re.IGNORECASE):
-            return True
-    return False
+    return any(re.search(p, content, re.IGNORECASE) for p in SUSPICIOUS_PATTERNS)
 
 # ================= RUN TEST (SSE) =================
 @app.post("/api/run")
-async def run_test(req: RunRequest, x_api_key: str = Header(...)):
-
+async def run_test(
+    req: RunRequest,
+    x_api_key: str | None = Header(None)
+):
     verify_key(x_api_key)
-
-    if IS_VERCEL:
-        raise HTTPException(
-            status_code=503,
-            detail="k6 execution is disabled on Vercel"
-        )
-
-    # 🔥 lazy imports (KEEP FEATURE)
-    from .k6_runner import run_k6_stream
-    from .pdf_generator import generate
 
     async def event_stream():
         run_id = str(uuid.uuid4())
@@ -124,18 +97,19 @@ async def run_test(req: RunRequest, x_api_key: str = Header(...)):
             with open(json_path) as f:
                 raw_ndjson = f.read()
 
-        parsed = parse_k6_ndjson(raw_ndjson)
-        parsed["scorecard"] = calculate_score(parsed.get("metrics", {}))
+        parsed_metrics = parse_k6_ndjson(raw_ndjson)
+        parsed_metrics["scorecard"] = calculate_score(
+            parsed_metrics.get("metrics", {})
+        )
 
-        analysis = await analyze(json.dumps(parsed))
+        analysis = await analyze(json.dumps(parsed_metrics))
 
         pdf_path = os.path.join(RESULT_DIR, f"{run_id}.pdf")
-
         generate(
             pdf_path,
             req.project_name,
             str(req.url),
-            json.dumps(parsed),
+            json.dumps(parsed_metrics),
             analysis
         )
 
@@ -145,7 +119,7 @@ async def run_test(req: RunRequest, x_api_key: str = Header(...)):
                 project_name=req.project_name,
                 url=str(req.url),
                 status="finished",
-                result_json=parsed,
+                result_json=parsed_metrics,
                 analysis=analysis,
                 pdf_path=pdf_path
             ))
@@ -156,7 +130,76 @@ async def run_test(req: RunRequest, x_api_key: str = Header(...)):
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")
 
-# ================= RUN CUSTOM JS (SSE) =================
+# ================= LIST RESULTS =================
+@app.get("/api/result/list")
+async def list_results(x_api_key: str | None = Header(None)):
+    verify_key(x_api_key)
+
+    async with SessionLocal() as session:
+        result = await session.execute(
+            select(LoadTest).order_by(LoadTest.created_at.desc())
+        )
+        tests = result.scalars().all()
+
+        return [
+            {
+                "id": t.id,
+                "project_name": t.project_name,
+                "url": t.url,
+                "status": t.status,
+                "created_at": t.created_at,
+                "result_json": t.result_json
+            }
+            for t in tests
+        ]
+
+# ================= GET RESULT =================
+@app.get("/api/result/{run_id}")
+async def get_result(
+    run_id: str,
+    x_api_key: str | None = Header(None)
+):
+    verify_key(x_api_key)
+
+    async with SessionLocal() as session:
+        result = await session.get(LoadTest, run_id)
+        if not result:
+            raise HTTPException(status_code=404)
+
+        return {
+            "id": result.id,
+            "project_name": result.project_name,
+            "url": result.url,
+            "analysis": result.analysis,
+            "pdf": f"/api/download/{run_id}",
+            "metrics": result.result_json.get("metrics", {}),
+            "timeline": result.result_json.get("timeline", {}),
+            "scorecard": result.result_json.get("scorecard", {})
+        }
+
+# ================= DOWNLOAD PDF =================
+@app.get("/api/download/{run_id}")
+async def download(
+    run_id: str,
+    x_api_key: str | None = Header(None)
+):
+    verify_key(x_api_key)
+
+    async with SessionLocal() as session:
+        result = await session.get(LoadTest, run_id)
+        if not result:
+            raise HTTPException(status_code=404)
+
+        return FileResponse(
+            path=result.pdf_path,
+            media_type="application/pdf",
+            filename=f"{run_id}.pdf",
+            headers={
+                "Content-Disposition": f'attachment; filename="{run_id}.pdf"'
+            }
+        )
+
+# ================= RUN CUSTOM JS SCRIPT (SSE) =================
 @app.post("/api/runjs")
 async def run_js(
     project_name: str = Form(...),
@@ -164,26 +207,16 @@ async def run_js(
     captcha_answer: int = Form(...),
     captcha_token: str = Form(...),
     captcha_timestamp: int = Form(...),
-    x_api_key: str = Header(...)
+    x_api_key: str | None = Header(None)
 ):
-
     verify_key(x_api_key)
-
-    if IS_VERCEL:
-        raise HTTPException(
-            status_code=503,
-            detail="Custom k6 execution disabled on Vercel"
-        )
 
     if not validate_captcha(captcha_answer, captcha_token, captcha_timestamp):
         raise HTTPException(status_code=400, detail="Invalid captcha")
 
     decoded = (await file.read()).decode("utf-8", errors="ignore")
-
     if is_malicious(decoded):
         raise HTTPException(status_code=400, detail="Suspicious script detected")
-
-    import subprocess  # 🔥 lazy import
 
     async def event_stream():
         run_id = str(uuid.uuid4())
@@ -208,13 +241,15 @@ async def run_js(
             process.wait()
 
         yield "data: __FINISHED__\n\n"
+        yield f"data: RUN_ID:{run_id}\n\n"
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")
 
 # ================= CAPTCHA =================
 @app.get("/api/captcha")
 async def generate_captcha():
-    a, b = random.randint(1, 20), random.randint(1, 20)
+    a = random.randint(1, 20)
+    b = random.randint(1, 20)
     ts = int(time.time())
     token = hashlib.sha256(f"{a+b}:{ts}:{CAPTCHA_SECRET}".encode()).hexdigest()
     return {"question": f"{a} + {b}", "timestamp": ts, "token": token}
@@ -222,24 +257,17 @@ async def generate_captcha():
 def validate_captcha(answer: int, token: str, timestamp: int):
     if int(time.time()) - timestamp > 300:
         return False
-    expected = hashlib.sha256(f"{answer}:{timestamp}:{CAPTCHA_SECRET}".encode()).hexdigest()
+    expected = hashlib.sha256(
+        f"{answer}:{timestamp}:{CAPTCHA_SECRET}".encode()
+    ).hexdigest()
     return expected == token
 
-# ================= RESET =================
+# ================= RESET DATA =================
 @app.post("/api/resetdata")
-async def reset_data(x_api_key: str = Header(...)):
-
+async def reset_data(x_api_key: str | None = Header(None)):
     verify_key(x_api_key)
 
     async with SessionLocal() as session:
-        result = await session.execute(select(LoadTest))
-        for r in result.scalars():
-            if r.pdf_path and os.path.exists(r.pdf_path):
-                try:
-                    os.remove(r.pdf_path)
-                except Exception:
-                    pass
-
         await session.execute(delete(LoadTest))
         await session.commit()
 
