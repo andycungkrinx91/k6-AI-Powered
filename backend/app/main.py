@@ -883,7 +883,7 @@ async def run_js(
 
 
 @app.get("/api/result/list")
-async def list_results(limit: int = 100, offset: int = 0, x_api_key: str | None = Header(None)):
+async def list_results(limit: int = 50, offset: int = 0, x_api_key: str | None = Header(None)):
     verify_key(x_api_key)
 
     limit = max(1, min(limit, 100))

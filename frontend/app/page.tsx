@@ -42,7 +42,7 @@ export default function DashboardPage() {
 
   useEffect(() => {
     async function load() {
-      const data = await getResults(120, 0)
+      const data = await getResults(50, 0)
       setResults(data)
     }
     load()

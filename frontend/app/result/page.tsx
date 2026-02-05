@@ -25,7 +25,7 @@ export default function ResultPage() {
 
   useEffect(() => {
     async function load() {
-      const data = await getResults(200, 0)
+      const data = await getResults(50, 0)
       setResults(data)
     }
     load()

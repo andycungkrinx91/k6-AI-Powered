@@ -16,5 +16,6 @@ class LoadTest(Base):
     pdf_path = mapped_column(Text, nullable=True)
     created_at = mapped_column(
         DateTime(timezone=True),
-        server_default=func.now()
+        server_default=func.now(),
+        index=True,
     )
