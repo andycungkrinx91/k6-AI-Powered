@@ -25,7 +25,7 @@ export default function ResultPage() {
 
   useEffect(() => {
     async function load() {
-      const data = await getResults()
+      const data = await getResults(200, 0)
       setResults(data)
     }
     load()
@@ -52,21 +52,38 @@ export default function ResultPage() {
     if (page > 1) setPage((p) => p - 1)
   }
 
-  const getGradeBadge = (grade: string) => {
-    if (!grade) return <span className="text-gray-400">N/A</span>
+  const getBadge = (val: any) => {
+    if (val === undefined || val === null || val === "") {
+      return <span className="px-2 py-1 text-xs text-gray-400">N/A</span>
+    }
 
-    const colors: any = {
+    const str = String(val)
+    let grade = str
+
+    if (/^\d+$/.test(str)) {
+      const num = Number(str)
+      if (num >= 97) grade = "A+"
+      else if (num >= 93) grade = "A"
+      else if (num >= 87) grade = "B"
+      else if (num >= 78) grade = "C"
+      else if (num >= 70) grade = "D"
+      else grade = "F"
+    }
+
+    const leading = grade.charAt(0)
+    const colors: Record<string, string> = {
       A: "bg-green-100 text-green-700",
       B: "bg-blue-100 text-blue-700",
       C: "bg-yellow-100 text-yellow-700",
       D: "bg-orange-100 text-orange-700",
+      E: "bg-orange-200 text-orange-800",
       F: "bg-red-100 text-red-700",
     }
 
+    const color = colors[leading] || "bg-gray-100 text-gray-700"
+
     return (
-      <span
-        className={`px-3 py-1 text-xs rounded-full font-semibold ${colors[grade]}`}
-      >
+      <span className={`px-3 py-1 text-xs rounded-full font-semibold ${color}`}>
         {grade}
       </span>
     )
@@ -102,8 +119,11 @@ export default function ResultPage() {
             <tr className="text-left text-gray-600 uppercase text-xs tracking-wider">
               <th className="px-6 py-4">Run ID</th>
               <th className="px-6 py-4">Project</th>
-              <th className="px-6 py-4">Score</th>
               <th className="px-6 py-4">SLA</th>
+              <th className="px-6 py-4">Sec</th>
+              <th className="px-6 py-4">SSL</th>
+              <th className="px-6 py-4">WPT</th>
+              <th className="px-6 py-4">LH</th>
               <th className="px-6 py-4">Created</th>
               <th className="px-6 py-4 text-right">Action</th>
             </tr>
@@ -111,12 +131,15 @@ export default function ResultPage() {
 
           <tbody className="divide-y">
             <AnimatePresence>
-              {paginatedResults.map((r) => {
-                const score = r.result_json?.scorecard?.score ?? "N/A"
+            {paginatedResults.map((r) => {
                 const grade = r.result_json?.scorecard?.grade ?? null
+                const secGrade = r.result_json?.security_headers?.grade || r.result_json?.security_headers?.score || "N/A"
+                const sslGrade = r.result_json?.ssl?.rating || r.result_json?.ssl?.ssllabs_grade || "N/A"
+                const wptGrade = r.result_json?.webpagetest?.grade || "N/A"
+                const lhScore = r.result_json?.lighthouse?.score ?? r.result_json?.lighthouse?.categories?.performance ?? "N/A"
 
-                return (
-                  <motion.tr
+              return (
+                <motion.tr
                     key={r.id}
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -128,8 +151,11 @@ export default function ResultPage() {
                     <td className="px-6 py-4 font-semibold text-orange-600">
                       {r.project_name}
                     </td>
-                    <td className="px-6 py-4 font-semibold">{score}</td>
-                    <td className="px-6 py-4">{getGradeBadge(grade)}</td>
+                    <td className="px-6 py-4">{getBadge(grade)}</td>
+                    <td className="px-6 py-4 text-xs">{getBadge(secGrade)}</td>
+                    <td className="px-6 py-4 text-xs">{getBadge(sslGrade)}</td>
+                    <td className="px-6 py-4 text-xs">{getBadge(wptGrade)}</td>
+                    <td className="px-6 py-4 text-xs">{getBadge(lhScore)}</td>
                     <td className="px-6 py-4 text-xs text-gray-500">
                       {new Date(r.created_at).toLocaleString()}
                     </td>
@@ -166,8 +192,11 @@ export default function ResultPage() {
           className="space-y-4"
         >
           {paginatedResults.map((r) => {
-            const score = r.result_json?.scorecard?.score ?? "N/A"
             const grade = r.result_json?.scorecard?.grade ?? null
+            const secGrade = r.result_json?.security_headers?.grade || r.result_json?.security_headers?.score || "N/A"
+            const sslGrade = r.result_json?.ssl?.rating || r.result_json?.ssl?.ssllabs_grade || "N/A"
+            const wptGrade = r.result_json?.webpagetest?.grade || "N/A"
+            const lhScore = r.result_json?.lighthouse?.score ?? r.result_json?.lighthouse?.categories?.performance ?? "N/A"
 
             return (
               <motion.div
@@ -186,13 +215,15 @@ export default function ResultPage() {
                 </div>
 
                 <div className="flex justify-between text-sm">
-                  <span>Score</span>
-                  <span className="font-semibold">{score}</span>
+                  <span>SLA</span>
+                  {getBadge(grade)}
                 </div>
 
-                <div className="flex justify-between text-sm">
-                  <span>SLA</span>
-                  {getGradeBadge(grade)}
+                <div className="grid grid-cols-2 gap-2 text-[11px] text-gray-700">
+                  <LabelValue label="Sec" value={getBadge(secGrade)} />
+                  <LabelValue label="SSL" value={getBadge(sslGrade)} />
+                  <LabelValue label="WPT" value={getBadge(wptGrade)} />
+                  <LabelValue label="LH" value={getBadge(lhScore)} />
                 </div>
 
                 <div className="text-xs text-gray-400">
@@ -236,5 +267,14 @@ export default function ResultPage() {
         </div>
       )}
     </motion.div>
+  )
+}
+
+function LabelValue({ label, value }: { label: string; value: any }) {
+  return (
+    <div className="flex items-center justify-between bg-gray-50 border border-gray-100 rounded-lg px-2 py-1">
+      <span className="text-gray-500">{label}</span>
+      <span className="font-semibold text-gray-800">{value ?? "N/A"}</span>
+    </div>
   )
 }

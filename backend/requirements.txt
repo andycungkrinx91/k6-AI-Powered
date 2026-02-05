@@ -9,3 +9,5 @@ google-genai
 matplotlib
 numpy
 python-multipart
+httpx
+playwright

@@ -33,30 +33,32 @@ export async function runTest(payload: any) {
 }
 
 // ================= RESULTS =================
-export async function getResults() {
-  return request("/api/result/list")
+export async function getResults(limit = 100, offset = 0) {
+  return request(`/api/result/list?limit=${limit}&offset=${offset}`)
 }
 
 export async function getResult(id: string) {
   return request(`/api/result/${id}`)
 }
 
-export async function downloadResult(id: string) {
-  const response = await fetch(
-    `${API_BASE}/api/download/${id}`,
-    {
-      headers: {
-        "x-api-key": process.env.NEXT_PUBLIC_API_KEY || ""
-      }
+export async function downloadResult(id: string, variant: "load" | "security" = "load") {
+  const path =
+    variant === "security"
+      ? `${API_BASE}/api/download/${id}/security`
+      : `${API_BASE}/api/download/${id}`
+
+  const response = await fetch(path, {
+    headers: {
+      "x-api-key": process.env.NEXT_PUBLIC_API_KEY || ""
     }
-  )
+  })
 
   const blob = await response.blob()
   const url = window.URL.createObjectURL(blob)
 
   const a = document.createElement("a")
   a.href = url
-  a.download = `${id}.pdf`
+  a.download = variant === "security" ? `${id}-security.pdf` : `${id}.pdf`
   document.body.appendChild(a)
   a.click()
   a.remove()

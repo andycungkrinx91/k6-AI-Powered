@@ -24,7 +24,7 @@ export default function Sidebar({
   // 🔥 Auto close mobile sidebar on route change
   useEffect(() => {
     setMobileOpen(false)
-  }, [pathname])
+  }, [pathname, setMobileOpen])
 
   const linkClass = (path: string) =>
     `flex items-center gap-3 px-4 py-2 rounded-xl transition ${

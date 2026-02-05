@@ -43,6 +43,10 @@ data: __FINISHED__
 data: RUN_ID:xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
 ```
 
+The result JSON (and PDF) also includes:
+- `security_headers`: grade, score (present/total), recommendations, raw headers
+- `ssl`: rating, score, protocol/key-exchange/cipher sub-scores, supported/weak versions, negotiated ciphers, certificate subject/issuer/SAN/validity, findings
+
 ---
 
 # 2️⃣ Upload Mode – Run Custom k6 Script
@@ -135,4 +139,3 @@ curl -X POST $BASE/api/resetdata \
 ---
 
 End of API test documentation.
-

@@ -22,19 +22,26 @@ def _analyze_with_key(payload: str, api_key: str) -> str:
     client = genai.Client(api_key=api_key)
 
     prompt = f"""
-You are a expert senior performance engineer enterprise. 
+You are an expert senior performance engineer.
 
-Analyze this structured k6 metrics JSON.
+Analyze the following structured JSON payload which may include:
+- k6 load metrics (metrics, timeline, scorecard)
+- Security headers scan (security_headers)
+- SSL/TLS analysis (ssl)
+- WebPageTest (Playwright) results (webpagetest: first/repeat, summary, waterfall)
+- Lighthouse results (lighthouse: categories, metrics)
 
-Provide:
-1. Executive summary
-2. Bottlenecks
-3. Risk assessment
-4. Optimization recommendations
-5. Scaling guidance
+Provide concise, enterprise-ready output:
+1) Executive summary (link perf/security/UX together)
+2) Bottlenecks and root causes (perf, network, frontend, TLS, headers)
+3) Risks (SLA, security surface, UX) with severity
+4) Prioritized recommendations (short bullets, actionable)
+5) Scaling/operational guidance (load profile, headroom)
 
 Rules:
-- Use clean enterprise language
+- Be specific; cite key numbers (e.g., p95, LCP, TTFB, CLS, INP, Speed Index, TLS rating, header grade, WPT score, Lighthouse scores)
+- Note missing/invalid data explicitly if sections are absent
+- Keep tone professional and concise
 
 DATA:
 {payload}

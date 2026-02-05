@@ -29,6 +29,34 @@ Enterprise-grade Load Testing Intelligence Platform powered by:
 - Threshold failure detection (exit code 99 supported)
 - Same scoring + AI + PDF pipeline
 
+## 🔹 Security Header Scanner (built-in)
+- Async HTTP header scan after k6 run
+- Checks: CSP, Permissions-Policy, Referrer-Policy, HSTS, X-Content-Type-Options, X-Frame-Options
+- Grades + present/total, recommendations, raw headers snapshot
+- Included in result JSON and merged PDF
+
+## 🔹 SSL/TLS Analysis (built-in)
+- Runs after header scan, against the same target
+- Probes TLS 1.3/1.2 support, flags legacy 1.1/1.0
+- Captures negotiated ciphers, key algo/size, cert subject/issuer/SAN/validity
+- Sub-scores (protocol / key exchange / cipher strength), letter rating, findings
+- Included in result JSON and merged PDF
+ - No external SSL Labs dependency; home-grown analyzer aiming for SSL Labs-like detail
+
+## 🔹 WebPageTest (Playwright, built-in)
+- Headless Chromium + custom `k6-ai-powerd-agent` User-Agent
+- Simulated Fast 3G + CPU throttle, first + repeat view (cache)
+- Captures TTFB, DCL, Load, FP, FCP, LCP, CLS, INP
+- Resource waterfall (top 40), transfer sizes, elapsed time, TBT, Speed Index heuristic, page weight, total requests
+- Auto WPT-style composite score + grade, first/repeat summaries in PDF
+- Stored in DB, exposed via API, and rendered in PDF
+
+## 🔹 Lighthouse (built-in)
+- Runs headless via Playwright Chromium
+- Captures category scores (Performance/Accessibility/Best Practices/SEO/PWA if present)
+- Shows key metrics (FCP, LCP, CLS, TBT, TTI, Speed Index)
+- Included in API payloads and PDF
+
 ## 🔹 AI Analysis (Gemini)
 - Multi API key rotation
 - Random key selection
@@ -85,6 +113,7 @@ DATABASE_URL=mysql+aiomysql://k6user:k6password@mysql:3306/k6ai
 BACKEND_API_KEY=super_secret_key
 RESULT_DIR=/app/results
 K6_BIN=k6
+USER_AGENT=k6-ai-powerd-agent
 
 # Gemini (Multiple Keys Supported)
 GEMINI_API_KEYS=key1,key2,key3
@@ -170,6 +199,8 @@ docker compose up -d --build
 
 ```
 pip install -r requirements.txt
+python -m playwright install chromium
+npm install -g lighthouse
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
@@ -298,4 +329,3 @@ Made with ❤️
 
 LinkedIn:
 https://www.linkedin.com/in/andy-setiyawan-452396170/
-

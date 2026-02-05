@@ -123,6 +123,7 @@ Make sure backend is accessible from container.
 - Real-time progress
 - Streaming logs
 - Animated progress bar
+- Step badges for Security Headers, SSL/TLS, WebPageTest (Playwright), Lighthouse
 - Success & error toast
 - Auto redirect to result page
 
@@ -132,6 +133,7 @@ Make sure backend is accessible from container.
 - Backend captcha validation
 - Streaming execution logs
 - Structured error detection
+- Shows post-run steps (Security/SSL/WPT/Lighthouse)
 
 ## 3️⃣ Dashboard
 
@@ -139,6 +141,10 @@ Make sure backend is accessible from container.
 - Error rate trend
 - Score breakdown donut
 - Animated KPI counters
+- TLS 1.3 coverage & security-header coverage KPIs
+- Security Header grade donut
+- SSL rating donut
+- Result History badges for Security, SSL, WPT, Lighthouse scores
 
 ## 4️⃣ Result Table
 
@@ -150,6 +156,10 @@ Make sure backend is accessible from container.
 - Row expand animation
 - SLA Grade badge
 - Performance score display
+- Security Headers section with grade/score and header statuses
+- SSL/TLS section with rating, sub-scores, protocols, ciphers, cert details, findings
+- WebPageTest (Playwright) section with first/repeat view metrics, waterfall, score/grade
+- Lighthouse section with category scores and key metrics
 
 ---
 
@@ -211,4 +221,3 @@ https://www.linkedin.com/in/andy-setiyawan-452396170/
 ---
 
 End of Frontend README
-

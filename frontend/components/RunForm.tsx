@@ -22,6 +22,20 @@ export default function RunForm() {
   const [logs, setLogs] = useState<string[]>([])
   const [showModal, setShowModal] = useState(false)
   const [progress, setProgress] = useState(0)
+  const [steps, setSteps] = useState<Record<string, "pending" | "running" | "done" | "skip">>({
+    load: "pending",
+    security_headers: "pending",
+    ssl: "pending",
+    wpt: "pending",
+    lighthouse: "pending",
+  })
+
+  const stepWeights: Record<string, number> = {
+    security_headers: 82,
+    ssl: 88,
+    wpt: 94,
+    lighthouse: 98,
+  }
 
   const [toast, setToast] = useState<{
     type: "success" | "error"
@@ -66,10 +80,17 @@ export default function RunForm() {
   const handleSubmit = async () => {
     if (!validate()) return
 
-    setLoading(true)
-    setLogs([])
-    setShowModal(true)
-    setProgress(0)
+      setLoading(true)
+      setLogs([])
+      setShowModal(true)
+      setProgress(0)
+      setSteps({
+        load: "running",
+        security_headers: "pending",
+        ssl: "pending",
+        wpt: "pending",
+        lighthouse: "pending",
+      })
 
     const totalSeconds = stages.reduce(
       (acc, stage) =>
@@ -123,16 +144,38 @@ export default function RunForm() {
             elapsed += 1
             const percent = Math.min(
               Math.floor((elapsed / totalSeconds) * 100),
-              95
+              80
             )
             setProgress(percent)
             setLogs((prev) => [...prev, message])
+          }
+
+          // Step markers from backend
+          if (message.startsWith("PROGRESS:")) {
+            const parts = message.split(":")
+            // PROGRESS:security_headers:start
+            if (parts.length >= 3) {
+              const key = parts[1]
+              const status = parts[2]
+              setSteps((prev) => ({
+                ...prev,
+                [key]: status === "start" ? "running" : status === "done" ? "done" : status === "skip" ? "skip" : prev[key],
+              }))
+              if (status === "done" || status === "skip") {
+                const weight = stepWeights[key]
+                if (weight) {
+                  setProgress((p) => Math.max(p, Math.min(weight, 99)))
+                }
+              }
+            }
+            return
           }
 
           // Success
           if (message.startsWith("RUN_ID:")) {
             const id = message.replace("RUN_ID:", "")
             setProgress(100)
+            setSteps((prev) => ({ ...prev, load: "done", security_headers: prev.security_headers === "pending" ? "done" : prev.security_headers, ssl: prev.ssl === "pending" ? "done" : prev.ssl, wpt: prev.wpt === "pending" ? "done" : prev.wpt, lighthouse: prev.lighthouse === "pending" ? "done" : prev.lighthouse }))
 
             setToast({
               type: "success",
@@ -317,6 +360,31 @@ export default function RunForm() {
 
             <div className="text-sm text-gray-600 mb-4">
               {progress}% Complete
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 mb-4 text-xs">
+              {[
+                { key: "load", label: "k6 Execution" },
+                { key: "security_headers", label: "Security Headers" },
+                { key: "ssl", label: "SSL Scan" },
+                { key: "wpt", label: "WebPageTest" },
+                { key: "lighthouse", label: "Lighthouse" },
+              ].map((step) => (
+                <div key={step.key} className="flex items-center gap-2">
+                  <span
+                    className={`w-2 h-2 rounded-full ${
+                      steps[step.key] === "done"
+                        ? "bg-green-500"
+                        : steps[step.key] === "running"
+                        ? "bg-yellow-400 animate-pulse"
+                        : steps[step.key] === "skip"
+                        ? "bg-gray-400"
+                        : "bg-gray-300"
+                    }`}
+                  />
+                  <span className="text-gray-700">{step.label}</span>
+                </div>
+              ))}
             </div>
 
             <div className="bg-black text-green-400 font-mono text-xs p-4 rounded-lg overflow-y-auto flex-1">

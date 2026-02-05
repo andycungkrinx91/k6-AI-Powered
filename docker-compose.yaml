@@ -10,6 +10,11 @@ services:
       MYSQL_PASSWORD: k6password
     ports:
       - "3306:3306"
+    command:
+      - "--sort-buffer-size=16M"
+      - "--max-allowed-packet=100M"
+    mem_limit: "1g"
+    cpus: 1.0
 
   backend:
     build: ./backend
@@ -20,6 +25,8 @@ services:
       - mysql
     ports:
       - "8000:8000"
+    mem_limit: "2g"
+    cpus: 2.0
 
   frontend:
     build: ./frontend
@@ -28,3 +35,5 @@ services:
       - backend
     ports:
       - "80:3000"
+    mem_limit: "512m"
+    cpus: 0.5

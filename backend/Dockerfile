@@ -4,7 +4,7 @@ WORKDIR /app
 
 # Install system deps
 RUN apt-get update && \
-    apt-get install -y curl gnupg && \
+    apt-get install -y curl gnupg nodejs npm && \
     rm -rf /var/lib/apt/lists/*
 
 # Install k6
@@ -16,6 +16,12 @@ RUN curl -L https://github.com/grafana/k6/releases/download/v1.5.0/k6-v1.5.0-lin
 # Install python deps
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
+
+# Install Playwright browser (Chromium) with system deps
+RUN python -m playwright install --with-deps chromium
+
+# Install Lighthouse (node)
+RUN npm install -g lighthouse
 
 # Copy app
 COPY app ./app

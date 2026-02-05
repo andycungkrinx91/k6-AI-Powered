@@ -18,6 +18,13 @@ export default function RunScriptUpload() {
   const [logs, setLogs] = useState<string[]>([])
   const [showModal, setShowModal] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [steps, setSteps] = useState<Record<string, "pending" | "running" | "done" | "skip">>({
+    load: "pending",
+    security_headers: "pending",
+    ssl: "pending",
+    wpt: "pending",
+    lighthouse: "pending",
+  })
 
   const API_BASE =
     process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
@@ -25,13 +32,13 @@ export default function RunScriptUpload() {
 
   useEffect(() => {
     fetch(`${API_BASE}/api/captcha`)
-      .then(res => res.json())
-      .then(data => {
+      .then((res) => res.json())
+      .then((data) => {
         setCaptchaQuestion(data.question)
         setCaptchaToken(data.token)
         setCaptchaTimestamp(data.timestamp)
       })
-  }, [])
+  }, [API_BASE])
 
   const handleCloseModal = () => {
     setShowModal(false)
@@ -60,6 +67,13 @@ export default function RunScriptUpload() {
     setLoading(true)
     setLogs([])
     setShowModal(true)
+    setSteps({
+      load: "running",
+      security_headers: "pending",
+      ssl: "pending",
+      wpt: "pending",
+      lighthouse: "pending",
+    })
 
     const formData = new FormData()
     formData.append("project_name", projectName)
@@ -115,6 +129,19 @@ export default function RunScriptUpload() {
           if (message.startsWith("RUN_ID:")) {
             const id = message.replace("RUN_ID:", "")
             router.push(`/result/${id}`)
+          }
+
+          if (message.startsWith("PROGRESS:")) {
+            const parts = message.split(":")
+            if (parts.length >= 3) {
+              const key = parts[1]
+              const status = parts[2]
+              setSteps((prev) => ({
+                ...prev,
+                [key]: status === "start" ? "running" : status === "done" ? "done" : status === "skip" ? "skip" : prev[key],
+              }))
+            }
+            return
           }
 
           if (!message.startsWith("__")) {
@@ -217,6 +244,31 @@ export default function RunScriptUpload() {
                 <div className="h-full bg-indigo-600 animate-pulse w-1/2" />
               </div>
             )}
+
+            <div className="grid grid-cols-2 gap-2 mb-4 text-xs">
+              {[
+                { key: "load", label: "k6 Execution" },
+                { key: "security_headers", label: "Security Headers" },
+                { key: "ssl", label: "SSL Scan" },
+                { key: "wpt", label: "WebPageTest" },
+                { key: "lighthouse", label: "Lighthouse" },
+              ].map((step) => (
+                <div key={step.key} className="flex items-center gap-2">
+                  <span
+                    className={`w-2 h-2 rounded-full ${
+                      steps[step.key] === "done"
+                        ? "bg-green-500"
+                        : steps[step.key] === "running"
+                        ? "bg-yellow-400 animate-pulse"
+                        : steps[step.key] === "skip"
+                        ? "bg-gray-400"
+                        : "bg-gray-300"
+                    }`}
+                  />
+                  <span className="text-gray-700">{step.label}</span>
+                </div>
+              ))}
+            </div>
 
             <div className="bg-black text-green-400 font-mono text-xs p-4 rounded-lg overflow-y-auto flex-1">
               {logs.map((log, i) => (

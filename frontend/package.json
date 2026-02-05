@@ -2,10 +2,14 @@
   "name": "k6-ai-powered",
   "private": true,
   "packageManager": "pnpm@9.0.0",
+  "engines": {
+    "node": "24.x"
+  },
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build",
-    "start": "next start -H 0.0.0.0 -p 80"
+    "start": "next start -H 0.0.0.0 -p 80",
+    "lint": "eslint . --ext .js,.jsx,.ts,.tsx"
   },
   "dependencies": {
     "framer-motion": "^12.29.0",
@@ -19,6 +23,8 @@
     "@tailwindcss/postcss": "^4.1.18",
     "@types/node": "25.0.10",
     "@types/react": "19.2.9",
+    "eslint": "^9.39.2",
+    "eslint-config-next": "^16.1.6",
     "tailwindcss": "^4.1.18",
     "typescript": "5.9.3"
   }

@@ -104,36 +104,37 @@ Frontend (Next.js)  ⇄  Backend (FastAPI)  ⇄  k6 Engine  ⇄  Gemini AI  ⇄ 
 
 ## 1️⃣ Builder Mode
 - Dynamic stage configuration
-- Real‑time progress
+- Real‑time progress + step badges (k6, Security Headers, SSL, WPT, Lighthouse)
 - Streaming logs
-- AI‑generated analysis
-- Automated PDF report
+- AI‑generated analysis with retry on 429/503
+- Automated PDF report (performance + security)
 
 ## 2️⃣ Script Upload Mode
 - Upload custom k6 scripts (≤ 2MB)
 - Captcha validation
 - Malware pattern filtering
 - Structured exit‑code handling
-- Secure execution sandbox
+- Same post-run pipeline: Security Headers, SSL/TLS analysis, WebPageTest (Playwright), Lighthouse
 
-## 3️⃣ AI Analysis Engine
-- Multi‑key Gemini support
-- Random key selection
-- Automatic retry on 429 / 503
-- Enterprise structured output
+## 3️⃣ Security & TLS Intelligence
+- Security Headers: CSP, Permissions-Policy, Referrer-Policy, HSTS, X-Content-Type-Options, X-Frame-Options; grade, recommendations, raw headers; PDF + API
+- SSL/TLS Analyzer: TLS 1.3/1.2 detection, legacy flags, negotiated ciphers, key algo/size, cert subject/issuer/SAN/validity, sub-scores and rating; PDF + API
 
-## 4️⃣ Dashboard
+## 4️⃣ Web Performance Scans
+- WebPageTest (Playwright): first/repeat view, TTFB/DCL/Load/FP/FCP/LCP/CLS/INP, Speed Index heuristic, TBT, page weight, resource waterfall; WPT-style score/grade; PDF + API + UI cards
+- Lighthouse: Performance/Accessibility/Best Practices/SEO/PWA (fallback 0 if missing), key metrics (FCP, LCP, CLS, TBT, TTI, Speed Index); PDF + API + UI cards
+
+## 5️⃣ Dashboard
 - Performance trend chart (animated)
 - Error rate trend
 - Score breakdown donut
-- SLA Grade badge
+- SLA + Security + SSL + WPT + Lighthouse badges in Result History
 - Animated KPI counters
 
-## 5️⃣ Result Management
-- Sortable table
-- Pagination
-- Mobile responsive
-- PDF download
+## 6️⃣ Result Management
+- Sortable, paginated table with filtering
+- Mobile responsive cards with badge summaries
+- PDF download (load/security)
 - CLI reset endpoint
 
 ---
@@ -175,4 +176,3 @@ Made with ❤️
 
 LinkedIn:
 https://www.linkedin.com/in/andy-setiyawan-452396170/
-
