@@ -54,7 +54,7 @@ K6 AI Powered is a full‑stack performance testing platform that combines **k6 
 It provides both:
 
 - Builder Mode (visual test configuration)
-- Script Upload Mode (custom k6 JS execution)
+- Script Upload Mode (custom k6 JS execution; optional via backend config)
 
 ---
 # 🏗 Architecture
@@ -110,8 +110,9 @@ Frontend (Next.js)  ⇄  Backend (FastAPI)  ⇄  k6 Engine  ⇄  Gemini AI  ⇄ 
 - Automated PDF report (performance + security)
 
 ## 2️⃣ Script Upload Mode
-- Upload custom k6 scripts (≤ 2MB)
-- Captcha validation
+- Upload custom k6 scripts (max size configurable via `MAX_UPLOAD_BYTES`; backend default: 200000 bytes)
+- Can be disabled by default (`ENABLE_SCRIPT_UPLOAD=false`)
+- Captcha validation (when upload mode is enabled)
 - Malware pattern filtering
 - Structured exit‑code handling
 - Same post-run pipeline: Security Headers, SSL/TLS analysis, WebPageTest (Playwright), Lighthouse
@@ -165,7 +166,7 @@ Each folder contains its own Dockerfile.
 
 - API key protected endpoints
 - Server‑side script validation
-- Captcha protection for upload mode
+- Captcha protection for upload mode (when enabled)
 - Gemini multi‑key fallback logic
 - No secrets exposed to frontend
 

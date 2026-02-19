@@ -26,12 +26,10 @@ export default function RunScriptUpload() {
     lighthouse: "pending",
   })
 
-  const API_BASE =
-    process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
-  const API_KEY = process.env.NEXT_PUBLIC_API_KEY
+  const API_BASE = "/api/backend"
 
   useEffect(() => {
-    fetch(`${API_BASE}/api/captcha`)
+    fetch(`${API_BASE}/api/captcha`, { cache: "no-store" })
       .then((res) => res.json())
       .then((data) => {
         setCaptchaQuestion(data.question)
@@ -85,10 +83,8 @@ export default function RunScriptUpload() {
     try {
       const response = await fetch(`${API_BASE}/api/runjs`, {
         method: "POST",
-        headers: {
-          "x-api-key": API_KEY || ""
-        },
-        body: formData
+        body: formData,
+        cache: "no-store",
       })
 
       if (!response.ok) {
@@ -100,6 +96,7 @@ export default function RunScriptUpload() {
 
       const reader = response.body?.getReader()
       const decoder = new TextDecoder()
+      let buffer = ""
 
       if (!reader) throw new Error("No stream")
 
@@ -107,13 +104,17 @@ export default function RunScriptUpload() {
         const { done, value } = await reader.read()
         if (done) break
 
-        const chunk = decoder.decode(value)
-        const lines = chunk.split("\n")
+        buffer += decoder.decode(value, { stream: true })
+        const frames = buffer.split("\n\n")
+        buffer = frames.pop() || ""
 
-        lines.forEach((line) => {
-          if (!line.startsWith("data: ")) return
+        frames.forEach((frame) => {
+          const line = frame
+            .split("\n")
+            .find((l) => l.startsWith("data: "))
+          if (!line) return
 
-          const message = line.replace("data: ", "").trim()
+          const message = line.slice("data: ".length).trim()
 
           // ✅ ONLY real backend failure markers
           if (message.startsWith("ERROR:")) {

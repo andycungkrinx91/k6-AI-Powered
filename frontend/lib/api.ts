@@ -1,14 +1,13 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
-const API_KEY = process.env.NEXT_PUBLIC_API_KEY
+const API_BASE = "/api/backend"
 
 async function request(path: string, options: RequestInit = {}) {
   const res = await fetch(`${API_BASE}${path}`, {
     ...options,
     headers: {
       "Content-Type": "application/json",
-      "x-api-key": API_KEY || "",
       ...(options.headers || {}),
     },
+    cache: "no-store",
   })
 
   if (!res.ok) {
@@ -24,9 +23,9 @@ export async function runTest(payload: any) {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "x-api-key": API_KEY || "",
     },
     body: JSON.stringify(payload),
+    cache: "no-store",
   })
 
   return res
@@ -47,11 +46,7 @@ export async function downloadResult(id: string, variant: "load" | "security" = 
       ? `${API_BASE}/api/download/${id}/security`
       : `${API_BASE}/api/download/${id}`
 
-  const response = await fetch(path, {
-    headers: {
-      "x-api-key": process.env.NEXT_PUBLIC_API_KEY || ""
-    }
-  })
+  const response = await fetch(path, { cache: "no-store" })
 
   const blob = await response.blob()
   const url = window.URL.createObjectURL(blob)

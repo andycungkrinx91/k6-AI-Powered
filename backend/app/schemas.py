@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import AnyUrl, BaseModel
 from typing import List
 
 class Stage(BaseModel):
@@ -7,5 +7,5 @@ class Stage(BaseModel):
 
 class RunRequest(BaseModel):
     project_name: str
-    url: str
+    url: AnyUrl
     stages: List[Stage]

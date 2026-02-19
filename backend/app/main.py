@@ -27,15 +27,20 @@ from .models import LoadTest
 from .pdf_generator import generate
 from .schemas import RunRequest
 from .scoring import calculate_score
+from .url_safety import UnsafeUrlError, validate_target_url
 
 app = FastAPI()
 
 # ================= ENV =================
 API_KEY = os.getenv("BACKEND_API_KEY")
+ADMIN_KEY = os.getenv("BACKEND_ADMIN_KEY")
 CAPTCHA_SECRET = os.getenv("CAPTCHA_SECRET")
 RESULT_DIR = os.getenv("RESULT_DIR", "./results")
 USER_AGENT = os.getenv("USER_AGENT", "k6-ai-powerd-agent")
 os.makedirs(RESULT_DIR, exist_ok=True)
+
+ENABLE_SCRIPT_UPLOAD = os.getenv("ENABLE_SCRIPT_UPLOAD", "false").lower() in {"1", "true", "yes"}
+MAX_UPLOAD_BYTES = int(os.getenv("MAX_UPLOAD_BYTES", "200000"))
 
 
 async def analyze_with_retry(payload: str, retries: int = 3, delay: float = 2.0):
@@ -668,6 +673,13 @@ def verify_key(x_api_key: str | None):
         raise HTTPException(status_code=401, detail="Unauthorized")
 
 
+def verify_admin_key(x_admin_key: str | None):
+    if not ADMIN_KEY:
+        raise HTTPException(status_code=403, detail="Admin endpoint disabled")
+    if not x_admin_key or x_admin_key != ADMIN_KEY:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+
 SUSPICIOUS_PATTERNS = [
     r"\bchild_process\b",
     r"\bexec\s*\(",
@@ -705,11 +717,20 @@ async def shutdown_event():
 async def run_test(req: RunRequest, x_api_key: str | None = Header(None)):
     verify_key(x_api_key)
 
+    try:
+        safe_url = validate_target_url(str(req.url))
+    except UnsafeUrlError as exc:
+        raise HTTPException(status_code=400, detail=f"Unsafe target url: {exc}") from exc
+
     async def event_stream():
         run_id = str(uuid.uuid4())
         json_path = None
+        tmp_dir = None
 
-        async for line in run_k6_stream(str(req.url), [s.dict() for s in req.stages]):
+        async for line in run_k6_stream(safe_url, [s.dict() for s in req.stages]):
+            if line.startswith("__TMP_DIR__:"):
+                tmp_dir = line.replace("__TMP_DIR__:", "").strip()
+                continue
             if line.startswith("__JSON_PATH__:"):
                 json_path = line.replace("__JSON_PATH__:", "").strip()
             else:
@@ -720,38 +741,57 @@ async def run_test(req: RunRequest, x_api_key: str | None = Header(None)):
             with open(json_path) as f:
                 raw_ndjson = f.read()
 
+        # Best-effort cleanup of temp artifacts.
+        try:
+            if json_path and os.path.exists(json_path):
+                os.remove(json_path)
+        except Exception:
+            pass
+
+        try:
+            if tmp_dir and os.path.isdir(tmp_dir):
+                for name in os.listdir(tmp_dir):
+                    path = os.path.join(tmp_dir, name)
+                    try:
+                        os.remove(path)
+                    except Exception:
+                        pass
+                os.rmdir(tmp_dir)
+        except Exception:
+            pass
+
         parsed_metrics = parse_k6_ndjson(raw_ndjson)
         parsed_metrics["scorecard"] = calculate_score(parsed_metrics.get("metrics", {}))
 
         # Security headers
         yield "data: PROGRESS:security_headers:start\n\n"
-        security_headers = await fetch_security_headers(str(req.url))
+        security_headers = await fetch_security_headers(safe_url)
         parsed_metrics["security_headers"] = security_headers
         parsed_metrics["security_status"] = "ready" if "error" not in security_headers else "error"
         yield "data: PROGRESS:security_headers:done\n\n"
 
         # SSL scan
         yield "data: PROGRESS:ssl:start\n\n"
-        ssl_result = await ssl_scan(str(req.url))
+        ssl_result = await ssl_scan(safe_url)
         parsed_metrics["ssl"] = ssl_result
         yield "data: PROGRESS:ssl:done\n\n"
 
         # WebPageTest (Playwright)
         yield "data: PROGRESS:wpt:start\n\n"
-        wpt_result = await run_webpagetest(str(req.url))
+        wpt_result = await run_webpagetest(safe_url)
         parsed_metrics["webpagetest"] = wpt_result
         yield "data: PROGRESS:wpt:done\n\n"
 
         # Lighthouse
         yield "data: PROGRESS:lighthouse:start\n\n"
-        lighthouse_result = await run_lighthouse_with_retry(str(req.url))
+        lighthouse_result = await run_lighthouse_with_retry(safe_url)
         parsed_metrics["lighthouse"] = lighthouse_result
         yield "data: PROGRESS:lighthouse:done\n\n"
 
         analysis = await analyze_with_retry(json.dumps(parsed_metrics))
 
         pdf_path = os.path.join(RESULT_DIR, f"{run_id}-load.pdf")
-        generate(pdf_path, req.project_name, str(req.url), json.dumps(parsed_metrics), analysis)
+        generate(pdf_path, req.project_name, safe_url, json.dumps(parsed_metrics), analysis)
 
         parsed_metrics["security_pdf_path"] = pdf_path
 
@@ -760,7 +800,7 @@ async def run_test(req: RunRequest, x_api_key: str | None = Header(None)):
                 LoadTest(
                     id=run_id,
                     project_name=req.project_name,
-                    url=str(req.url),
+                    url=safe_url,
                     status="finished",
                     result_json=parsed_metrics,
                     analysis=analysis,
@@ -786,16 +826,29 @@ async def run_js(
 ):
     verify_key(x_api_key)
 
+    if not ENABLE_SCRIPT_UPLOAD:
+        raise HTTPException(status_code=403, detail="Script upload disabled")
+
     if not validate_captcha(captcha_answer, captcha_token, captcha_timestamp):
         raise HTTPException(status_code=400, detail="Invalid captcha")
 
-    decoded = (await file.read()).decode("utf-8", errors="ignore")
+    raw = await file.read()
+    if len(raw) > MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=413, detail="Upload too large")
+
+    decoded = raw.decode("utf-8", errors="ignore")
     if is_malicious(decoded):
         raise HTTPException(status_code=400, detail="Suspicious script detected")
 
     async def event_stream():
         run_id = str(uuid.uuid4())
         target_url = extract_first_url(decoded)
+        safe_target_url = None
+        if target_url:
+            try:
+                safe_target_url = validate_target_url(target_url)
+            except UnsafeUrlError:
+                safe_target_url = None
 
         with tempfile.TemporaryDirectory() as tmpdir:
             script_path = os.path.join(tmpdir, "script.js")
@@ -804,17 +857,24 @@ async def run_js(
             with open(script_path, "w") as f:
                 f.write(decoded)
 
-            process = subprocess.Popen(
-                ["k6", "run", script_path, "--out", f"json={result_json_path}"],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                text=True,
+            proc = await asyncio.create_subprocess_exec(
+                "k6",
+                "run",
+                script_path,
+                "--out",
+                f"json={result_json_path}",
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.STDOUT,
             )
 
-            for line in iter(process.stdout.readline, ""):
-                yield f"data: {line.strip()}\n\n"
+            assert proc.stdout is not None
+            while True:
+                line = await proc.stdout.readline()
+                if not line:
+                    break
+                yield f"data: {line.decode(errors='ignore').strip()}\n\n"
 
-            process.wait()
+            await proc.wait()
 
             raw_ndjson = ""
             if os.path.exists(result_json_path):
@@ -824,42 +884,42 @@ async def run_js(
         parsed_metrics = parse_k6_ndjson(raw_ndjson)
         parsed_metrics["scorecard"] = calculate_score(parsed_metrics.get("metrics", {}))
 
-        if not target_url:
+        if not safe_target_url:
             parsed_metrics["security_status"] = "error"
-            parsed_metrics["security_headers"] = {"error": "target url not detected"}
-            parsed_metrics["ssl"] = {"status": "ERROR", "score": 0, "findings": [{"id": "no_target", "severity": "high", "message": "Target URL not detected"}]}
-            parsed_metrics["webpagetest"] = {"status": "ERROR", "error": "Target URL not detected"}
-            parsed_metrics["lighthouse"] = {"status": "ERROR", "error": "Target URL not detected"}
+            parsed_metrics["security_headers"] = {"error": "target url missing or unsafe"}
+            parsed_metrics["ssl"] = {"status": "ERROR", "score": 0, "findings": [{"id": "no_target", "severity": "high", "message": "Target URL missing or unsafe"}]}
+            parsed_metrics["webpagetest"] = {"status": "ERROR", "error": "Target URL missing or unsafe"}
+            parsed_metrics["lighthouse"] = {"status": "ERROR", "error": "Target URL missing or unsafe"}
             yield "data: PROGRESS:security_headers:skip\n\n"
             yield "data: PROGRESS:ssl:skip\n\n"
             yield "data: PROGRESS:wpt:skip\n\n"
             yield "data: PROGRESS:lighthouse:skip\n\n"
         else:
             yield "data: PROGRESS:security_headers:start\n\n"
-            security_headers = await fetch_security_headers(target_url)
+            security_headers = await fetch_security_headers(safe_target_url)
             parsed_metrics["security_headers"] = security_headers
             parsed_metrics["security_status"] = "ready" if "error" not in security_headers else "error"
             yield "data: PROGRESS:security_headers:done\n\n"
 
             yield "data: PROGRESS:ssl:start\n\n"
-            ssl_result = await ssl_scan(target_url)
+            ssl_result = await ssl_scan(safe_target_url)
             parsed_metrics["ssl"] = ssl_result
             yield "data: PROGRESS:ssl:done\n\n"
 
             yield "data: PROGRESS:wpt:start\n\n"
-            wpt_result = await run_webpagetest(target_url)
+            wpt_result = await run_webpagetest(safe_target_url)
             parsed_metrics["webpagetest"] = wpt_result
             yield "data: PROGRESS:wpt:done\n\n"
 
             yield "data: PROGRESS:lighthouse:start\n\n"
-            lighthouse_result = await run_lighthouse_with_retry(target_url)
+            lighthouse_result = await run_lighthouse_with_retry(safe_target_url)
             parsed_metrics["lighthouse"] = lighthouse_result
             yield "data: PROGRESS:lighthouse:done\n\n"
 
         analysis = await analyze_with_retry(json.dumps(parsed_metrics))
 
         pdf_path = os.path.join(RESULT_DIR, f"{run_id}-load.pdf")
-        generate(pdf_path, project_name, target_url or "unknown", json.dumps(parsed_metrics), analysis)
+        generate(pdf_path, project_name, safe_target_url or "unknown", json.dumps(parsed_metrics), analysis)
         parsed_metrics["security_pdf_path"] = pdf_path
 
         async with SessionLocal() as session:
@@ -867,7 +927,7 @@ async def run_js(
                 LoadTest(
                     id=run_id,
                     project_name=project_name,
-                    url=target_url or "unknown",
+                    url=safe_target_url or "unknown",
                     status="finished",
                     result_json=parsed_metrics,
                     analysis=analysis,
@@ -1001,8 +1061,8 @@ def validate_captcha(answer: int, token: str, timestamp: int):
 
 
 @app.post("/api/resetdata")
-async def reset_data(x_api_key: str | None = Header(None)):
-    verify_key(x_api_key)
+async def reset_data(x_admin_key: str | None = Header(None)):
+    verify_admin_key(x_admin_key)
 
     async with SessionLocal() as session:
         await session.execute(delete(LoadTest))

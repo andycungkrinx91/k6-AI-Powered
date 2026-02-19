@@ -64,11 +64,11 @@ frontend/
 Create `.env`:
 
 ```
-NEXT_PUBLIC_API_URL=http://backend.local:8000
-NEXT_PUBLIC_API_KEY=your_secret_key
+BACKEND_API_URL=http://backend:8000
+BACKEND_API_KEY=your_backend_api_key_here
 ```
 
-These values are exposed to the browser.
+These values are read server-side by `app/api/backend/[...path]/route.ts` and are not exposed to the browser (do not prefix with `NEXT_PUBLIC_`).
 
 ---
 
@@ -106,8 +106,8 @@ Run:
 
 ```
 docker run -p 3000:3000 \
-  -e NEXT_PUBLIC_API_URL=http://backend.local:8000 \
-  -e NEXT_PUBLIC_API_KEY=your_secret_key \
+  -e BACKEND_API_URL=http://backend:8000 \
+  -e BACKEND_API_KEY=your_backend_api_key_here \
   k6ai-frontend
 ```
 
@@ -129,7 +129,7 @@ Make sure backend is accessible from container.
 
 ## 2️⃣ Script Upload Mode
 
-- Upload .js k6 script (max 2MB)
+ - Upload .js k6 script (max size enforced by backend config)
 - Backend captcha validation
 - Streaming execution logs
 - Structured error detection

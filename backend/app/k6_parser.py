@@ -7,7 +7,9 @@ def parse_k6_ndjson(raw: str):
 
     latency_values = []
     timeline_latency = defaultdict(list)
-    timeline_requests = defaultdict(int)
+    # http_reqs is a Counter in k6 JSON output; values are cumulative.
+    # We store the maximum observed value per second bucket.
+    timeline_requests = defaultdict(float)
     timeline_checks = defaultdict(lambda: {"pass": 0, "fail": 0})
 
     first_ts = None
@@ -49,7 +51,9 @@ def parse_k6_ndjson(raw: str):
             timeline_latency[bucket].append(value)
 
         if metric == "http_reqs":
-            timeline_requests[bucket] += 1
+            # Keep max cumulative count observed in this bucket.
+            if value > timeline_requests[bucket]:
+                timeline_requests[bucket] = value
 
         if metric == "checks":
             if value == 1:
@@ -84,29 +88,18 @@ def parse_k6_ndjson(raw: str):
     }
 
     # ================= REQUESTS / RPS =================
-    total_requests = sum(timeline_requests.values())
+    total_requests = int(max(timeline_requests.values())) if timeline_requests else 0
 
     if first_ts and last_ts and last_ts > first_ts:
         duration_seconds = (last_ts - first_ts).total_seconds()
         rps = total_requests / duration_seconds if duration_seconds > 0 else 0
     else:
-        duration_seconds = 0
-        rps = 0
-
-    total_requests = sum(timeline_requests.values())
-
-    if timeline_requests:
-        first = min(timeline_requests.keys())
-        last = max(timeline_requests.keys())
-        start = datetime.fromisoformat(first)
-        end = datetime.fromisoformat(last)
-        duration_seconds = max((end - start).total_seconds(), 1)
-    else:
         duration_seconds = 1
+        rps = 0
 
     summary["http_reqs"] = {
         "count": total_requests,
-        "rate": round(total_requests / duration_seconds, 2)
+        "rate": round(rps, 2)
     }
 
     return {

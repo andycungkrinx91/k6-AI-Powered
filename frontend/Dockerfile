@@ -26,7 +26,7 @@ RUN corepack enable
 # Copy standalone build
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
-#COPY --from=builder /app/public ./public
+COPY --from=builder /app/public ./public
 COPY .env /app/.env
 
 EXPOSE 3000

@@ -127,13 +127,13 @@ curl -X GET $BASE/api/download/RUN_ID_HERE \
 
 ---
 
-# 6️⃣ Reset All Data (Manual CLI Only)
+# 6️⃣ Reset All Data (Admin Only)
 
-⚠ This deletes database records and generated PDFs.
+⚠ This deletes database records. (It does not remove files on disk.)
 
 ```bash
 curl -X POST $BASE/api/resetdata \
-  -H "x-api-key: $API_KEY"
+  -H "x-admin-key: $ADMIN_KEY"
 ```
 
 ---

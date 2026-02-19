@@ -42,9 +42,7 @@ export default function RunForm() {
     message: string
   } | null>(null)
 
-  const API_BASE =
-    process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
-  const API_KEY = process.env.NEXT_PUBLIC_API_KEY
+  const API_BASE = "/api/backend"
 
   const parseDurationToSeconds = (duration: string) => {
     if (duration.endsWith("s"))
@@ -105,31 +103,37 @@ export default function RunForm() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-api-key": API_KEY || "",
         },
         body: JSON.stringify({
           project_name: projectName,
           url,
           stages,
         }),
+        cache: "no-store",
       })
 
       if (!response.body) throw new Error("No stream")
 
       const reader = response.body.getReader()
       const decoder = new TextDecoder()
+      let buffer = ""
 
       while (true) {
         const { done, value } = await reader.read()
         if (done) break
 
-        const chunk = decoder.decode(value)
-        const lines = chunk.split("\n")
+        buffer += decoder.decode(value, { stream: true })
 
-        lines.forEach((line) => {
-          if (!line.startsWith("data: ")) return
+        const frames = buffer.split("\n\n")
+        buffer = frames.pop() || ""
 
-          const message = line.replace("data: ", "").trim()
+        frames.forEach((frame) => {
+          const line = frame
+            .split("\n")
+            .find((l) => l.startsWith("data: "))
+          if (!line) return
+
+          const message = line.slice("data: ".length).trim()
 
           // Real backend error only
           if (message.startsWith("ERROR:")) {

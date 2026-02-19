@@ -22,7 +22,8 @@ Enterprise-grade Load Testing Intelligence Platform powered by:
 - Enterprise PDF report
 
 ## 🔹 Custom k6 Script Mode
-- Upload `.js` file (max 2MB)
+- Optional `.js` file upload mode (disabled by default)
+- Max upload size configurable via `MAX_UPLOAD_BYTES`
 - Suspicious script detection
 - Server-side CAPTCHA validation
 - k6 structured exit code handling
@@ -111,9 +112,12 @@ Example:
 ```
 DATABASE_URL=mysql+aiomysql://k6user:k6password@mysql:3306/k6ai
 BACKEND_API_KEY=super_secret_key
+BACKEND_ADMIN_KEY=super_secret_admin_key  # required for /api/resetdata via x-admin-key
+CAPTCHA_SECRET=your_internal_secret
 RESULT_DIR=/app/results
-K6_BIN=k6
+CORS_ORIGINS=http://localhost,http://localhost:3000
 USER_AGENT=k6-ai-powerd-agent
+LIGHTHOUSE_CHROMIUM_FLAGS=--headless=new --no-sandbox --disable-dev-shm-usage --disable-gpu
 
 # Gemini (Multiple Keys Supported)
 GEMINI_API_KEYS=key1,key2,key3
@@ -121,13 +125,20 @@ GEMINI_MODEL=gemini-2.5-flash-lite
 GEMINI_MAX_TOKENS=8192
 GEMINI_TEMPERATURE=0.2
 
+# Security / SSRF
+ALLOWED_TARGET_PORTS=80,443
+
+# Script upload (dangerous; disabled by default)
+ENABLE_SCRIPT_UPLOAD=false
+MAX_UPLOAD_BYTES=200000
+
+# Execution limits
+K6_TIMEOUT_SECONDS=180
+
 # SLA Thresholds
 THRESHOLD_SUCCESS_RATE=0.95
 THRESHOLD_ERROR_RATE=0.1
 THRESHOLD_P90_MS=1500
-
-# Captcha Secret
-CAPTCHA_SECRET=your_internal_secret
 ```
 
 ⚠️ Never commit `.env` to version control.
@@ -180,12 +191,14 @@ services:
     build: .
     env_file: .env
     volumes:
-      - .:/app/results
+      - ./results:/app/results
     depends_on:
       - mysql
     ports:
       - "8000:8000"
 ```
+
+Use a dedicated host results folder and map it to the same path as `RESULT_DIR` inside the container (example above assumes `RESULT_DIR=/app/results`).
 
 Run:
 
@@ -217,6 +230,8 @@ POST `/api/run`
 ## ▶ Run Custom JS Script
 
 POST `/api/runjs`
+
+Note: disabled by default (`ENABLE_SCRIPT_UPLOAD=false`); upload size limit is configurable via `MAX_UPLOAD_BYTES`.
 
 Requires:
 - project_name
@@ -251,8 +266,8 @@ POST `/api/resetdata`
 
 ⚠️ This endpoint:
 - Deletes all database records
-- Removes all generated PDFs
-- Intended for CLI usage only
+- Does not remove files on disk
+- Requires `BACKEND_ADMIN_KEY` via `x-admin-key`
 
 ---
 
@@ -291,7 +306,8 @@ Exit code 99 (threshold failure) is treated as valid execution.
 - API Key required on all endpoints
 - Server-side CAPTCHA validation
 - Suspicious JS script detection
-- Max upload size: 2MB
+- Script upload disabled by default (`ENABLE_SCRIPT_UPLOAD=false`)
+- Max upload size configurable via `MAX_UPLOAD_BYTES`
 - Structured exit code handling
 - Execution timeout protection
 - SSE streaming isolation

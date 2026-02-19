@@ -22,7 +22,8 @@ export default function ResultDetail() {
         const res = await getResult(id)
         setData(res)
       } catch (err) {
-        console.error(err)
+        // Avoid leaking internal details into browser console.
+        setData(null)
       } finally {
         setLoading(false)
       }
