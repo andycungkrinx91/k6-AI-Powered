@@ -10,22 +10,25 @@ import re
 import ssl
 import socket
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 import httpx
-from fastapi import FastAPI, Header, HTTPException, UploadFile, File, Form, Request, Response
+import jwt
+from jwt import PyJWTError
+from passlib.context import CryptContext
+from fastapi import Depends, FastAPI, Header, HTTPException, UploadFile, File, Form, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, FileResponse
-from sqlalchemy import select, delete
-from sqlalchemy.exc import OperationalError
+from sqlalchemy import delete, or_, select
+from sqlalchemy.exc import IntegrityError, OperationalError
 
 from .database import SessionLocal, engine, Base
 from .gemini import analyze
 from .k6_parser import parse_k6_ndjson
 from .k6_runner import run_k6_stream
-from .models import LoadTest
+from .models import LoadTest, User
 from .pdf_generator import generate
-from .schemas import RunRequest
+from .schemas import RunRequest, LoginPayload, UserCreate, PasswordUpdate
 from .scoring import calculate_score
 from .url_safety import UnsafeUrlError, validate_target_url
 
@@ -41,6 +44,15 @@ os.makedirs(RESULT_DIR, exist_ok=True)
 
 ENABLE_SCRIPT_UPLOAD = os.getenv("ENABLE_SCRIPT_UPLOAD", "false").lower() in {"1", "true", "yes"}
 MAX_UPLOAD_BYTES = int(os.getenv("MAX_UPLOAD_BYTES", "200000"))
+
+AUTH_SECRET = os.getenv("AUTH_SECRET", "k6-ai-powered-default-secret")
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "1440"))
+JWT_ALGORITHM = "HS256"
+INITIAL_ADMIN_USERNAME = os.getenv("INITIAL_ADMIN_USERNAME")
+INITIAL_ADMIN_EMAIL = os.getenv("INITIAL_ADMIN_EMAIL")
+INITIAL_ADMIN_PASSWORD = os.getenv("INITIAL_ADMIN_PASSWORD")
+# Prefer Argon2 (Argon2id) for new password hashes, while still verifying legacy bcrypt.
+pwd_context = CryptContext(schemes=["argon2", "bcrypt"], deprecated="auto")
 
 
 async def analyze_with_retry(payload: str, retries: int = 3, delay: float = 2.0):
@@ -99,6 +111,51 @@ SECURITY_HEADERS = [
     "x-content-type-options",
     "x-frame-options",
 ]
+
+
+def hash_password(password: str) -> str:
+    return pwd_context.hash(password)
+
+
+def verify_password(plain: str, hashed: str) -> bool:
+    return pwd_context.verify(plain, hashed)
+
+
+def create_access_token(user: User, expires_delta: timedelta | None = None) -> str:
+    expire = datetime.utcnow() + (expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
+    payload = {
+        "sub": user.id,
+        "username": user.username,
+        "role": user.role,
+        "exp": expire,
+    }
+    return jwt.encode(payload, AUTH_SECRET, algorithm=JWT_ALGORITHM)
+
+
+async def get_current_user(authorization: str | None = Header(None)) -> User:
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing Bearer token")
+    token = authorization.split(" ", 1)[1]
+    try:
+        payload = jwt.decode(token, AUTH_SECRET, algorithms=[JWT_ALGORITHM])
+    except PyJWTError:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+
+    user_id = payload.get("sub")
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Invalid token payload")
+
+    async with SessionLocal() as session:
+        user = await session.get(User, user_id)
+        if not user:
+            raise HTTPException(status_code=401, detail="User not found")
+        return user
+
+
+def require_admin(user: User = Depends(get_current_user)) -> User:
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    return user
 
 
 def grade_security(present_count: int, total: int) -> str:
@@ -680,6 +737,58 @@ def verify_admin_key(x_admin_key: str | None):
         raise HTTPException(status_code=401, detail="Unauthorized")
 
 
+async def ensure_initial_admin():
+    if not (INITIAL_ADMIN_USERNAME and INITIAL_ADMIN_EMAIL and INITIAL_ADMIN_PASSWORD):
+        return
+
+    async with SessionLocal() as session:
+        # Idempotent bootstrap:
+        # - If admin user (by username/email) doesn't exist, create it.
+        # - If it exists and password differs from env, rotate it to env password.
+        # - If it exists and matches, do nothing.
+        stmt = select(User).where(
+            or_(User.username == INITIAL_ADMIN_USERNAME, User.email == INITIAL_ADMIN_EMAIL)
+        )
+        result = await session.execute(stmt)
+        user = result.scalar_one_or_none()
+
+        if not user:
+            user = User(
+                id=str(uuid.uuid4()),
+                username=INITIAL_ADMIN_USERNAME,
+                email=INITIAL_ADMIN_EMAIL,
+                hashed_password=hash_password(INITIAL_ADMIN_PASSWORD),
+                role="admin",
+            )
+            session.add(user)
+            try:
+                await session.commit()
+            except IntegrityError:
+                await session.rollback()
+            return
+
+        changed = False
+        if user.role != "admin":
+            user.role = "admin"
+            changed = True
+
+        # Keep email aligned to env (helps when environments differ).
+        if user.email != INITIAL_ADMIN_EMAIL:
+            user.email = INITIAL_ADMIN_EMAIL
+            changed = True
+
+        # Rotate password if env password doesn't match.
+        if not verify_password(INITIAL_ADMIN_PASSWORD, user.hashed_password):
+            user.hashed_password = hash_password(INITIAL_ADMIN_PASSWORD)
+            changed = True
+
+        if changed:
+            try:
+                await session.commit()
+            except IntegrityError:
+                await session.rollback()
+
+
 SUSPICIOUS_PATTERNS = [
     r"\bchild_process\b",
     r"\bexec\s*\(",
@@ -706,6 +815,7 @@ def extract_first_url(content: str):
 async def startup():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+    await ensure_initial_admin()
 
 
 @app.on_event("shutdown")
@@ -713,8 +823,96 @@ async def shutdown_event():
     await engine.dispose()
 
 
+@app.post("/api/auth/login")
+async def login(payload: LoginPayload):
+    async with SessionLocal() as session:
+        stmt = select(User).where(
+            or_(User.username == payload.identifier, User.email == payload.identifier)
+        )
+        result = await session.execute(stmt)
+        user = result.scalar_one_or_none()
+        if not user or not verify_password(payload.password, user.hashed_password):
+            raise HTTPException(status_code=401, detail="Invalid credentials")
+
+        token = create_access_token(user)
+        return {
+            "access_token": token,
+            "token_type": "bearer",
+            "user": {
+                "id": user.id,
+                "username": user.username,
+                "email": user.email,
+                "role": user.role,
+            },
+        }
+
+
+@app.get("/api/auth/users")
+async def list_users(admin: User = Depends(require_admin)):
+    async with SessionLocal() as session:
+        stmt = select(User).order_by(User.created_at.desc())
+        result = await session.execute(stmt)
+        users = result.scalars().all()
+        return [
+            {
+                "id": user.id,
+                "username": user.username,
+                "email": user.email,
+                "role": user.role,
+                "created_at": user.created_at,
+                "updated_at": user.updated_at,
+            }
+            for user in users
+        ]
+
+
+@app.post("/api/auth/users")
+async def create_user(payload: UserCreate, admin: User = Depends(require_admin)):
+    new_user = User(
+        id=str(uuid.uuid4()),
+        username=payload.username,
+        email=payload.email,
+        hashed_password=hash_password(payload.password),
+        role=payload.role,
+    )
+    async with SessionLocal() as session:
+        session.add(new_user)
+        try:
+            await session.commit()
+            await session.refresh(new_user)
+        except IntegrityError:
+            await session.rollback()
+            raise HTTPException(status_code=400, detail="Username or email already exists")
+
+    return {
+        "id": new_user.id,
+        "username": new_user.username,
+        "email": new_user.email,
+        "role": new_user.role,
+    }
+
+
+@app.put("/api/profile/password")
+async def update_password(payload: PasswordUpdate, current_user: User = Depends(get_current_user)):
+    if not verify_password(payload.current_password, current_user.hashed_password):
+        raise HTTPException(status_code=400, detail="Current password incorrect")
+
+    async with SessionLocal() as session:
+        user = await session.get(User, current_user.id)
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        user.hashed_password = hash_password(payload.new_password)
+        await session.commit()
+
+    return {"status": "ok"}
+
+
 @app.post("/api/run")
-async def run_test(req: RunRequest, x_api_key: str | None = Header(None)):
+async def run_test(
+    req: RunRequest,
+    x_api_key: str | None = Header(None),
+    current_user: User = Depends(get_current_user),
+):
     verify_key(x_api_key)
 
     try:
@@ -762,6 +960,11 @@ async def run_test(req: RunRequest, x_api_key: str | None = Header(None)):
 
         parsed_metrics = parse_k6_ndjson(raw_ndjson)
         parsed_metrics["scorecard"] = calculate_score(parsed_metrics.get("metrics", {}))
+        parsed_metrics["run_by"] = {
+            "id": current_user.id,
+            "username": current_user.username,
+            "role": current_user.role,
+        }
 
         # Security headers
         yield "data: PROGRESS:security_headers:start\n\n"
@@ -805,6 +1008,8 @@ async def run_test(req: RunRequest, x_api_key: str | None = Header(None)):
                     result_json=parsed_metrics,
                     analysis=analysis,
                     pdf_path=pdf_path,
+                    user_id=current_user.id,
+                    username=current_user.username,
                 )
             )
             await session.commit()
@@ -823,6 +1028,7 @@ async def run_js(
     captcha_token: str = Form(...),
     captcha_timestamp: int = Form(...),
     x_api_key: str | None = Header(None),
+    current_user: User = Depends(get_current_user),
 ):
     verify_key(x_api_key)
 
@@ -883,6 +1089,11 @@ async def run_js(
 
         parsed_metrics = parse_k6_ndjson(raw_ndjson)
         parsed_metrics["scorecard"] = calculate_score(parsed_metrics.get("metrics", {}))
+        parsed_metrics["run_by"] = {
+            "id": current_user.id,
+            "username": current_user.username,
+            "role": current_user.role,
+        }
 
         if not safe_target_url:
             parsed_metrics["security_status"] = "error"
@@ -932,6 +1143,8 @@ async def run_js(
                     result_json=parsed_metrics,
                     analysis=analysis,
                     pdf_path=pdf_path,
+                    user_id=current_user.id,
+                    username=current_user.username,
                 )
             )
             await session.commit()
@@ -943,7 +1156,12 @@ async def run_js(
 
 
 @app.get("/api/result/list")
-async def list_results(limit: int = 50, offset: int = 0, x_api_key: str | None = Header(None)):
+async def list_results(
+    limit: int = 50,
+    offset: int = 0,
+    x_api_key: str | None = Header(None),
+    current_user: User = Depends(get_current_user),
+):
     verify_key(x_api_key)
 
     limit = max(1, min(limit, 100))
@@ -951,17 +1169,20 @@ async def list_results(limit: int = 50, offset: int = 0, x_api_key: str | None =
 
     async with SessionLocal() as session:
         try:
-            stmt = (
-                select(LoadTest)
-                .order_by(LoadTest.created_at.desc())
-                .limit(limit)
-                .offset(offset)
-            )
+            stmt = select(LoadTest)
+            if current_user.role != "admin":
+                stmt = stmt.where(LoadTest.user_id == current_user.id)
+
+            stmt = stmt.order_by(LoadTest.created_at.desc()).limit(limit).offset(offset)
             result = await session.execute(stmt)
             slice_tests = result.scalars().all()
         except OperationalError:
             fallback_limit = min(limit, 50)
-            stmt = select(LoadTest).limit(fallback_limit).offset(offset)
+            stmt = select(LoadTest)
+            if current_user.role != "admin":
+                stmt = stmt.where(LoadTest.user_id == current_user.id)
+
+            stmt = stmt.limit(fallback_limit).offset(offset)
             result = await session.execute(stmt)
             slice_tests = result.scalars().all()
         return [
@@ -972,19 +1193,28 @@ async def list_results(limit: int = 50, offset: int = 0, x_api_key: str | None =
                 "status": t.status,
                 "created_at": t.created_at,
                 "result_json": t.result_json,
+                "run_by": (t.result_json or {}).get("run_by")
+                or {"id": t.user_id, "username": t.username},
             }
             for t in slice_tests
         ]
 
 
 @app.get("/api/result/{run_id}")
-async def get_result(run_id: str, x_api_key: str | None = Header(None)):
+async def get_result(
+    run_id: str,
+    x_api_key: str | None = Header(None),
+    current_user: User = Depends(get_current_user),
+):
     verify_key(x_api_key)
 
     async with SessionLocal() as session:
         result = await session.get(LoadTest, run_id)
         if not result:
             raise HTTPException(status_code=404)
+
+        if current_user.role != "admin" and result.user_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Forbidden")
 
         payload = result.result_json or {}
         return {
@@ -1002,17 +1232,25 @@ async def get_result(run_id: str, x_api_key: str | None = Header(None)):
             "ssl": payload.get("ssl", {}),
             "webpagetest": payload.get("webpagetest", {}),
             "lighthouse": payload.get("lighthouse", {}),
+            "run_by": payload.get("run_by") or {"id": result.user_id, "username": result.username},
         }
 
 
 @app.get("/api/download/{run_id}")
-async def download(run_id: str, x_api_key: str | None = Header(None)):
+async def download(
+    run_id: str,
+    x_api_key: str | None = Header(None),
+    current_user: User = Depends(get_current_user),
+):
     verify_key(x_api_key)
 
     async with SessionLocal() as session:
         result = await session.get(LoadTest, run_id)
         if not result:
             raise HTTPException(status_code=404)
+
+        if current_user.role != "admin" and result.user_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Forbidden")
 
         return FileResponse(
             path=result.pdf_path,
@@ -1023,13 +1261,20 @@ async def download(run_id: str, x_api_key: str | None = Header(None)):
 
 
 @app.get("/api/download/{run_id}/security")
-async def download_security(run_id: str, x_api_key: str | None = Header(None)):
+async def download_security(
+    run_id: str,
+    x_api_key: str | None = Header(None),
+    current_user: User = Depends(get_current_user),
+):
     verify_key(x_api_key)
 
     async with SessionLocal() as session:
         result = await session.get(LoadTest, run_id)
         if not result:
             raise HTTPException(status_code=404)
+
+        if current_user.role != "admin" and result.user_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Forbidden")
 
         payload = result.result_json or {}
         pdf_path = payload.get("security_pdf_path")

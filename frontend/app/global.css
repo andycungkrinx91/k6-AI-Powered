@@ -1,7 +1,126 @@
 @import "tailwindcss";
 
-body {
-  font-family: 'Inter', sans-serif;
+/* Tailwind v4 CSS-first theme tokens */
+@theme {
+  --color-terminal-bg: #030303;
+  --color-terminal-surface: #0a0c0a;
+  --color-terminal-surface2: #0f130f;
+  --color-terminal-border: #1a2e1a;
+  --color-terminal-phosphor: #39ff14;
+  --color-terminal-dim: #008f11;
+  --color-terminal-cyan: #00ffff;
+  --color-terminal-amber: #ffb000;
+  --color-terminal-magenta: #ff00ff;
+  --color-terminal-white: #eafbe6;
+}
+
+/* Default theme + fonts (matrix/linux) */
+:root {
+  --k6-font-mono: "JetBrains Mono", "Fira Code", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    "Liberation Mono", "Courier New", monospace;
+}
+
+html[data-theme="matrix"] {
+  --color-terminal-bg: #030303;
+  --color-terminal-surface: #0a0c0a;
+  --color-terminal-surface2: #0f130f;
+  --color-terminal-border: #1a2e1a;
+  --color-terminal-phosphor: #39ff14;
+  --color-terminal-dim: #008f11;
+  --color-terminal-cyan: #00ffff;
+  --color-terminal-amber: #ffb000;
+  --color-terminal-magenta: #ff00ff;
+  --color-terminal-white: #eafbe6;
+}
+
+html[data-theme="amber"] {
+  --color-terminal-bg: #1a120b;
+  --color-terminal-surface: #2b1d10;
+  --color-terminal-surface2: #362411;
+  --color-terminal-border: #804000;
+  --color-terminal-phosphor: #ffb000;
+  --color-terminal-dim: #b85c00;
+  --color-terminal-cyan: #ffd659;
+  --color-terminal-amber: #ffb000;
+  --color-terminal-magenta: #ff3333;
+  --color-terminal-white: #fff3d6;
+}
+
+html[data-theme="cyberpunk"] {
+  --color-terminal-bg: #090914;
+  --color-terminal-surface: #15152a;
+  --color-terminal-surface2: #1b1b35;
+  --color-terminal-border: #d926ff;
+  --color-terminal-phosphor: #00ffff;
+  --color-terminal-dim: #d926ff;
+  --color-terminal-cyan: #00ffff;
+  --color-terminal-amber: #fdf500;
+  --color-terminal-magenta: #ff0055;
+  --color-terminal-white: #f6f6ff;
+}
+
+html[data-theme="midnight"] {
+  --color-terminal-bg: #1e1e2e;
+  --color-terminal-surface: #282a36;
+  --color-terminal-surface2: #2f3140;
+  --color-terminal-border: #44475a;
+  --color-terminal-phosphor: #bd93f9;
+  --color-terminal-dim: #6272a4;
+  --color-terminal-cyan: #8be9fd;
+  --color-terminal-amber: #f1fa8c;
+  --color-terminal-magenta: #ff5555;
+  --color-terminal-white: #f8f8f2;
+}
+
+html[data-font="modern"] {
+  --k6-font-mono: "JetBrains Mono", "Fira Code", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    "Liberation Mono", "Courier New", monospace;
+}
+
+html[data-font="classic"] {
+  --k6-font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New",
+    monospace;
+}
+
+html[data-font="geometric"] {
+  --k6-font-mono: "Space Mono", "Roboto Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    "Liberation Mono", "Courier New", monospace;
+}
+
+html[data-font="retro"] {
+  --k6-font-mono: "VT323", "Courier Prime", "Courier New", monospace;
+}
+
+@layer base {
+  html {
+    font-family: var(--k6-font-mono);
+  }
+
+  body {
+    @apply bg-terminal-bg text-terminal-white;
+  }
+
+  /* CRT scanlines + subtle vignette */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 60;
+    background:
+      radial-gradient(1200px 700px at 50% 15%, rgba(57, 255, 20, 0.10), transparent 65%),
+      radial-gradient(900px 600px at 30% 90%, rgba(0, 255, 255, 0.06), transparent 60%),
+      linear-gradient(to bottom, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.00) 20%, rgba(0, 0, 0, 0.22) 100%),
+      repeating-linear-gradient(
+        to bottom,
+        rgba(255, 255, 255, 0.04) 0px,
+        rgba(255, 255, 255, 0.04) 1px,
+        rgba(0, 0, 0, 0) 3px,
+        rgba(0, 0, 0, 0) 6px
+      );
+    mix-blend-mode: overlay;
+    opacity: 0.22;
+  }
 }
 
 @keyframes slide-in {
@@ -36,12 +155,37 @@ body {
 input,
 select,
 textarea {
-  @apply border border-gray-200 rounded-xl px-4 py-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none;
+  @apply bg-transparent border border-terminal-border rounded-md px-4 py-2 text-terminal-white placeholder:text-terminal-dim/80;
+  @apply focus:outline-none focus:ring-0 focus:border-terminal-phosphor;
 }
 
 /* Buttons */
 button {
-  @apply rounded-xl transition;
+  @apply rounded-md transition;
+}
+
+/* Terminal selection */
+::selection {
+  background: rgba(57, 255, 20, 0.35);
+  color: #000;
+}
+
+@keyframes cursor-blink {
+  0%, 49% {
+    opacity: 1;
+  }
+  50%, 100% {
+    opacity: 0;
+  }
+}
+
+.cursor-block {
+  display: inline-block;
+  width: 0.6em;
+  height: 1em;
+  background-color: currentColor;
+  animation: cursor-blink 1s step-end infinite;
+  vertical-align: -0.15em;
 }
 
 @keyframes heart-pulse {

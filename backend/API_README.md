@@ -7,6 +7,21 @@ API_KEY=your_secret_key
 BASE=http://backend.local:8000
 ```
 
+## Authentication Model
+
+Most endpoints require **both**:
+
+- `x-api-key: $API_KEY` (backend API key)
+- `Authorization: Bearer $TOKEN` (JWT from login)
+
+Get a JWT token:
+
+```bash
+TOKEN=$(curl -s -X POST $BASE/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"identifier":"admin","password":"change_me"}' | jq -r .access_token)
+```
+
 ---
 
 # 1️⃣ Builder Mode – Run Load Test
@@ -22,6 +37,7 @@ POST /api/run
 curl -X POST $BASE/api/run \
   -H "Content-Type: application/json" \
   -H "x-api-key: $API_KEY" \
+  -H "Authorization: Bearer $TOKEN" \
   -N \
   -d '{
     "project_name": "QuickPizza Test",
@@ -76,6 +92,7 @@ Solve manually (example: 11)
 ```bash
 curl -X POST $BASE/api/runjs \
   -H "x-api-key: $API_KEY" \
+  -H "Authorization: Bearer $TOKEN" \
   -N \
   -F "project_name=Custom Script Test" \
   -F "file=@./k6-test.js" \
@@ -103,7 +120,8 @@ data: RUN_ID:xxxxxxxx
 
 ```bash
 curl -X GET $BASE/api/result/list \
-  -H "x-api-key: $API_KEY"
+  -H "x-api-key: $API_KEY" \
+  -H "Authorization: Bearer $TOKEN"
 ```
 
 ---
@@ -112,7 +130,8 @@ curl -X GET $BASE/api/result/list \
 
 ```bash
 curl -X GET $BASE/api/result/RUN_ID_HERE \
-  -H "x-api-key: $API_KEY"
+  -H "x-api-key: $API_KEY" \
+  -H "Authorization: Bearer $TOKEN"
 ```
 
 ---
@@ -122,6 +141,7 @@ curl -X GET $BASE/api/result/RUN_ID_HERE \
 ```bash
 curl -X GET $BASE/api/download/RUN_ID_HERE \
   -H "x-api-key: $API_KEY" \
+  -H "Authorization: Bearer $TOKEN" \
   --output report.pdf
 ```
 

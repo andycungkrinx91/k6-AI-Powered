@@ -11,3 +11,6 @@ numpy
 python-multipart
 httpx
 playwright
+passlib[argon2,bcrypt]
+PyJWT
+email-validator

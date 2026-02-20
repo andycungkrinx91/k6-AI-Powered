@@ -2,9 +2,11 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
+import { useAuth } from "@/context/AuthContext"
 
 export default function RunScriptUpload() {
   const router = useRouter()
+  const { token } = useAuth()
 
   const [projectName, setProjectName] = useState("")
   const [file, setFile] = useState<File | null>(null)
@@ -81,8 +83,10 @@ export default function RunScriptUpload() {
     formData.append("captcha_timestamp", String(captchaTimestamp))
 
     try {
+      const headers = token ? { Authorization: `Bearer ${token}` } : undefined
       const response = await fetch(`${API_BASE}/api/runjs`, {
         method: "POST",
+        headers,
         body: formData,
         cache: "no-store",
       })
@@ -210,39 +214,42 @@ export default function RunScriptUpload() {
       <button
         onClick={handleRun}
         disabled={loading}
-        className={`px-6 py-3 rounded-xl text-white transition ${
+        className={`px-6 py-3 border rounded-md text-sm font-semibold uppercase tracking-widest transition ${
           loading
-            ? "bg-gray-400 cursor-not-allowed"
-            : "bg-indigo-600 hover:bg-indigo-700"
+            ? "border-terminal-border text-terminal-dim cursor-not-allowed"
+            : "border-terminal-phosphor text-terminal-phosphor hover:bg-terminal-phosphor hover:text-black"
         }`}
       >
-        {loading ? "Running..." : "Run Script"}
+        {loading ? "> RUNNING..." : "> RUN SCRIPT"}
       </button>
 
       {/* Running Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white w-[600px] max-h-[520px] rounded-2xl p-6 shadow-xl flex flex-col relative">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
+          <div
+            className="border border-terminal-border bg-terminal-surface w-[600px] max-h-[520px] rounded-md p-6 shadow-terminal flex flex-col relative"
+            onClick={(e) => e.stopPropagation()}
+          >
 
             {!loading && (
               <button
                 onClick={handleCloseModal}
-                className="absolute top-4 right-4 text-gray-500 hover:text-red-500 text-lg font-bold"
+                className="absolute top-4 right-4 text-terminal-dim hover:text-terminal-magenta text-lg font-bold"
               >
                 ✕
               </button>
             )}
 
-            <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-              Running Custom Script
+            <h2 className="text-lg font-semibold mb-4 flex items-center gap-2 text-terminal-phosphor">
+              &gt; RUNNING CUSTOM SCRIPT
               {loading && (
-                <span className="w-2 h-2 bg-indigo-600 rounded-full animate-ping" />
+                <span className="w-2 h-2 bg-terminal-phosphor rounded-full animate-ping" />
               )}
             </h2>
 
             {loading && (
-              <div className="w-full bg-gray-200 rounded-full h-3 mb-4 overflow-hidden">
-                <div className="h-full bg-indigo-600 animate-pulse w-1/2" />
+              <div className="w-full border border-terminal-border bg-terminal-bg h-3 mb-4 overflow-hidden">
+                <div className="h-full bg-terminal-phosphor animate-pulse w-1/2" />
               </div>
             )}
 

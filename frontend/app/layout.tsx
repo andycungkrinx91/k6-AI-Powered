@@ -1,47 +1,29 @@
-"use client"
-
 import "./global.css"
-import { useState } from "react"
-import Header from "@/components/Header"
-import Sidebar from "@/components/Sidebar"
+import Script from "next/script"
+import Providers from "@/components/Providers"
+import AppShell from "@/components/AppShell"
 
 export default function RootLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
-  const [collapsed, setCollapsed] = useState(false)
-  const [mobileOpen, setMobileOpen] = useState(false)
-
   return (
-    <html lang="en">
-      <body className="bg-gray-50 text-gray-900">
-        <div className="flex min-h-screen">
-
-          <Sidebar
-            collapsed={collapsed}
-            mobileOpen={mobileOpen}
-            setMobileOpen={setMobileOpen}
-          />
-
-          <div
-            className={`flex-1 min-w-0 flex flex-col transition-all duration-300 ${
-              collapsed ? "lg:ml-20" : "lg:ml-64"
-            }`}
-          >
-            <Header
-              collapsed={collapsed}
-              setCollapsed={setCollapsed}
-              setMobileOpen={setMobileOpen}
-            />
-
-            <main className="p-4 sm:p-6 md:p-8 min-w-0">
-              {children}
-            </main>
-
-          </div>
-
-        </div>
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <Script
+          id="k6-theme-init"
+          strategy="beforeInteractive"
+          dangerouslySetInnerHTML={{
+            __html:
+              "(function(){try{var t=localStorage.getItem('k6-theme')||'matrix';var f=localStorage.getItem('k6-font')||'modern';document.documentElement.setAttribute('data-theme',t);document.documentElement.setAttribute('data-font',f);}catch(e){}})();",
+          }}
+        />
+      </head>
+      <body className="bg-terminal-bg text-terminal-white">
+        <Providers>
+          <AppShell>{children}</AppShell>
+        </Providers>
       </body>
     </html>
   )

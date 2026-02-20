@@ -3,9 +3,11 @@
 export const dynamic = "force-dynamic"
 
 import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
 import { getResults } from "@/lib/api"
 import Link from "next/link"
 import { motion, AnimatePresence } from "framer-motion"
+import { useAuth } from "@/context/AuthContext"
 
 interface ResultItem {
   id: string
@@ -14,22 +16,51 @@ interface ResultItem {
   status: string
   created_at: string
   result_json?: any
+  run_by?: {
+    id?: string
+    username?: string
+  }
 }
 
 const ITEMS_PER_PAGE = 8
 
 export default function ResultPage() {
+  const router = useRouter()
+  const { user, token, ready } = useAuth()
   const [results, setResults] = useState<ResultItem[]>([])
   const [search, setSearch] = useState("")
   const [page, setPage] = useState(1)
 
   useEffect(() => {
-    async function load() {
-      const data = await getResults(50, 0)
-      setResults(data)
+    if (!token) {
+      return
     }
+
+    async function load() {
+      try {
+        const data = await getResults(50, 0, token)
+        setResults(data)
+      } catch (error) {
+        console.error("Failed to load results", error)
+      }
+    }
+
     load()
-  }, [])
+  }, [token])
+
+  useEffect(() => {
+    if (ready && !user) {
+      router.replace("/login")
+    }
+  }, [ready, user, router])
+
+    if (!ready || !user) {
+      return (
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="text-sm text-terminal-dim">Preparing results…</div>
+        </div>
+      )
+    }
 
   const filtered = results.filter(
     (r) =>
@@ -96,10 +127,10 @@ export default function ResultPage() {
       transition={{ duration: 0.4 }}
       className="space-y-6 pb-10"
     >
-      <h1 className="text-2xl font-semibold">Result History</h1>
+      <h1 className="text-2xl font-semibold text-terminal-phosphor">Result History</h1>
 
       {/* Sticky Mobile Search */}
-      <div className="md:static sticky top-0 z-10 bg-gray-50 py-3">
+      <div className="md:static sticky top-0 z-10 bg-terminal-bg py-3">
         <input
           type="text"
           placeholder="Search by Run ID or Project Name"
@@ -108,15 +139,15 @@ export default function ResultPage() {
             setSearch(e.target.value)
             setPage(1)
           }}
-          className="w-full border rounded-xl px-4 py-3 text-sm shadow-sm focus:ring-2 focus:ring-indigo-500"
+          className="w-full px-4 py-3 text-sm"
         />
       </div>
 
       {/* DESKTOP TABLE */}
-      <div className="hidden md:block bg-white rounded-2xl shadow">
+      <div className="hidden md:block border border-terminal-border bg-terminal-surface shadow-terminal">
         <table className="w-full text-sm">
-          <thead className="bg-gray-50 border-b sticky top-0">
-            <tr className="text-left text-gray-600 uppercase text-xs tracking-wider">
+          <thead className="bg-terminal-surface2 border-b border-terminal-border sticky top-0">
+            <tr className="text-left text-terminal-dim uppercase text-xs tracking-wider">
               <th className="px-6 py-4">Run ID</th>
               <th className="px-6 py-4">Project</th>
               <th className="px-6 py-4">SLA</th>
@@ -124,6 +155,7 @@ export default function ResultPage() {
               <th className="px-6 py-4">SSL</th>
               <th className="px-6 py-4">WPT</th>
               <th className="px-6 py-4">LH</th>
+              <th className="px-6 py-4">Run By</th>
               <th className="px-6 py-4">Created</th>
               <th className="px-6 py-4 text-right">Action</th>
             </tr>
@@ -137,6 +169,7 @@ export default function ResultPage() {
                 const sslGrade = r.result_json?.ssl?.rating || r.result_json?.ssl?.ssllabs_grade || "N/A"
                 const wptGrade = r.result_json?.webpagetest?.grade || "N/A"
                 const lhScore = r.result_json?.lighthouse?.score ?? r.result_json?.lighthouse?.categories?.performance ?? "N/A"
+                const runBy = r.run_by || { username: "system" }
 
               return (
                 <motion.tr
@@ -145,10 +178,10 @@ export default function ResultPage() {
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0 }}
                     transition={{ duration: 0.25 }}
-                    className="hover:bg-gray-50"
-                  >
+                  className="hover:bg-terminal-surface2"
+                >
                     <td className="px-6 py-4 font-mono text-xs">{r.id}</td>
-                    <td className="px-6 py-4 font-semibold text-orange-600">
+                    <td className="px-6 py-4 font-semibold text-terminal-amber">
                       {r.project_name}
                     </td>
                     <td className="px-6 py-4">{getBadge(grade)}</td>
@@ -156,13 +189,14 @@ export default function ResultPage() {
                     <td className="px-6 py-4 text-xs">{getBadge(sslGrade)}</td>
                     <td className="px-6 py-4 text-xs">{getBadge(wptGrade)}</td>
                     <td className="px-6 py-4 text-xs">{getBadge(lhScore)}</td>
-                    <td className="px-6 py-4 text-xs text-gray-500">
-                      {new Date(r.created_at).toLocaleString()}
+                    <td className="px-6 py-4 text-xs text-terminal-dim">{runBy.username}</td>
+                    <td className="px-6 py-4 text-xs text-terminal-dim">
+                      {new Date(r.created_at).toISOString().replace("T", " ").slice(0, 19)}
                     </td>
                     <td className="px-6 py-4 text-right">
                       <Link
                         href={`/result/${r.id}`}
-                        className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-xs"
+                        className="px-4 py-2 border border-terminal-phosphor text-terminal-phosphor hover:bg-terminal-phosphor hover:text-black text-xs"
                       >
                         View
                       </Link>
@@ -197,6 +231,7 @@ export default function ResultPage() {
             const sslGrade = r.result_json?.ssl?.rating || r.result_json?.ssl?.ssllabs_grade || "N/A"
             const wptGrade = r.result_json?.webpagetest?.grade || "N/A"
             const lhScore = r.result_json?.lighthouse?.score ?? r.result_json?.lighthouse?.categories?.performance ?? "N/A"
+            const runBy = r.run_by || { username: "system" }
 
             return (
               <motion.div
@@ -204,14 +239,18 @@ export default function ResultPage() {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.25 }}
-                className="bg-white rounded-2xl shadow p-4 space-y-3"
+                className="border border-terminal-border bg-terminal-surface shadow-terminal p-4 space-y-3"
               >
-                <div className="text-xs font-mono break-all text-gray-500">
+                <div className="text-xs font-mono break-all text-terminal-dim">
                   {r.id}
                 </div>
 
-                <div className="font-semibold text-lg text-orange-600">
+                <div className="font-semibold text-lg text-terminal-amber">
                   {r.project_name}
+                </div>
+
+                <div className="text-xs text-terminal-dim">
+                  Run by {runBy.username}
                 </div>
 
                 <div className="flex justify-between text-sm">
@@ -219,20 +258,20 @@ export default function ResultPage() {
                   {getBadge(grade)}
                 </div>
 
-                <div className="grid grid-cols-2 gap-2 text-[11px] text-gray-700">
+                <div className="grid grid-cols-2 gap-2 text-[11px] text-terminal-dim">
                   <LabelValue label="Sec" value={getBadge(secGrade)} />
                   <LabelValue label="SSL" value={getBadge(sslGrade)} />
                   <LabelValue label="WPT" value={getBadge(wptGrade)} />
                   <LabelValue label="LH" value={getBadge(lhScore)} />
                 </div>
 
-                <div className="text-xs text-gray-400">
-                  {new Date(r.created_at).toLocaleString()}
+                <div className="text-xs text-terminal-dim">
+                  {new Date(r.created_at).toISOString().replace("T", " ").slice(0, 19)}
                 </div>
 
                 <Link
                   href={`/result/${r.id}`}
-                  className="block text-center bg-indigo-600 text-white py-2 rounded-lg text-sm"
+                  className="block text-center border border-terminal-phosphor text-terminal-phosphor py-2 rounded-md text-sm hover:bg-terminal-phosphor hover:text-black"
                 >
                   View Result
                 </Link>
@@ -248,7 +287,7 @@ export default function ResultPage() {
           <button
             onClick={prevPage}
             disabled={page === 1}
-            className="px-4 py-2 bg-gray-200 rounded-lg disabled:opacity-40"
+            className="px-4 py-2 border border-terminal-border rounded-md disabled:opacity-40 hover:bg-terminal-surface2"
           >
             Prev
           </button>
@@ -260,7 +299,7 @@ export default function ResultPage() {
           <button
             onClick={nextPage}
             disabled={page === totalPages}
-            className="px-4 py-2 bg-gray-200 rounded-lg disabled:opacity-40"
+            className="px-4 py-2 border border-terminal-border rounded-md disabled:opacity-40 hover:bg-terminal-surface2"
           >
             Next
           </button>

@@ -17,6 +17,11 @@ async function proxy(req: NextRequest, ctx: { params: Promise<{ path: string[] }
 
   const headers = new Headers()
   headers.set("x-api-key", BACKEND_KEY)
+  const authorization = req.headers.get("authorization")
+  if (authorization && authorization !== "Bearer undefined" && authorization !== "Bearer null") {
+    // Standardize casing for downstream services.
+    headers.set("Authorization", authorization)
+  }
   const contentType = req.headers.get("content-type")
   if (contentType) headers.set("content-type", contentType)
   const accept = req.headers.get("accept")

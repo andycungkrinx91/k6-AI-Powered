@@ -5,17 +5,11 @@ import asyncio
 from google.genai.errors import APIError
 
 GEMINI_API_KEYS = os.getenv("GEMINI_API_KEYS")
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
 GEMINI_MAX_TOKENS = int(os.getenv("GEMINI_MAX_TOKENS", "2048"))
 GEMINI_TEMPERATURE = float(os.getenv("GEMINI_TEMPERATURE", "0.2"))
 
-if not GEMINI_API_KEYS:
-    raise RuntimeError("GEMINI_API_KEYS not configured")
-
-API_KEYS = [k.strip() for k in GEMINI_API_KEYS.split(",") if k.strip()]
-
-if not API_KEYS:
-    raise RuntimeError("No valid Gemini API keys provided")
+API_KEYS = [k.strip() for k in (GEMINI_API_KEYS or "").split(",") if k.strip()]
 
 
 def _analyze_with_key(payload: str, api_key: str) -> str:
@@ -56,10 +50,13 @@ DATA:
         }
     )
 
-    return response.text
+    return response.text or ""
 
 
 async def analyze(payload: str) -> str:
+
+    if not API_KEYS:
+        raise RuntimeError("GEMINI_API_KEYS not configured")
 
     attempts = 0
     used_keys = set()

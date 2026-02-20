@@ -1,8 +1,9 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useParams } from "next/navigation"
+import { useParams, useRouter } from "next/navigation"
 import { getResult, downloadResult } from "@/lib/api"
+import { useAuth } from "@/context/AuthContext"
 import ChartCard from "@/components/ChartCard"
 import ResultTable from "@/components/ResultTable"
 import Card from "@/components/Card"
@@ -10,16 +11,19 @@ import Card from "@/components/Card"
 export default function ResultDetail() {
   const params = useParams()
   const id = params?.id as string
+  const router = useRouter()
+  const { user, token, ready } = useAuth()
 
   const [data, setData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (!id) return
+    if (!id || !token) return
+    setLoading(true)
 
     async function fetchData() {
       try {
-        const res = await getResult(id)
+        const res = await getResult(id, token)
         setData(res)
       } catch (err) {
         // Avoid leaking internal details into browser console.
@@ -30,7 +34,21 @@ export default function ResultDetail() {
     }
 
     fetchData()
-  }, [id])
+  }, [id, token])
+
+  useEffect(() => {
+    if (ready && !user) {
+      router.replace("/login")
+    }
+  }, [ready, user, router])
+
+  if (!ready || !user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-sm text-terminal-dim">Loading result…</div>
+      </div>
+    )
+  }
 
   if (loading) return <div>Loading...</div>
 
@@ -46,19 +64,23 @@ export default function ResultDetail() {
     <div className="space-y-6">
 
       <Card title={`Load Test Result — ${data.project_name}`}>
-        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 min-w-0">
-          <div className="min-w-0">
-            <div className="text-orange-600 font-semibold">
-              {data.project_name}
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 min-w-0">
+            <div className="min-w-0">
+              <div className="text-terminal-amber font-semibold">
+                {data.project_name}
+              </div>
+              <div className="text-terminal-cyan text-sm break-all">
+                {data.url}
+              </div>
+              <div className="text-xs text-terminal-dim mt-2">
+                Run by {data.run_by?.username ?? "system"}
+                {data.run_by?.id ? ` · ${data.run_by.id}` : ""}
+              </div>
             </div>
-            <div className="text-purple-600 text-sm break-all">
-              {data.url}
-            </div>
-          </div>
 
           <button
-            onClick={() => downloadResult(id)}
-            className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 w-full sm:w-auto"
+            onClick={() => downloadResult(id, token)}
+            className="border border-terminal-phosphor text-terminal-phosphor px-4 py-2 hover:bg-terminal-phosphor hover:text-black w-full sm:w-auto"
           >
             Download Report
           </button>
@@ -89,31 +111,31 @@ export default function ResultDetail() {
         </div>
 
         {securityStatus !== "ready" && (
-          <div className="text-sm text-gray-500">
+          <div className="text-sm text-terminal-dim">
             Security header scan is still running. Refresh this page after the scan completes.
           </div>
         )}
 
         {securityStatus === "ready" && securityHeaders?.error && (
-          <div className="text-sm text-red-500">Security scan failed: {securityHeaders.error}</div>
+          <div className="text-sm text-terminal-magenta">Security scan failed: {securityHeaders.error}</div>
         )}
 
         {securityStatus === "ready" && securityHeaders?.headers && (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-left text-gray-500">
+                <tr className="text-left text-terminal-dim">
                   <th className="py-2 pr-4">Header</th>
                   <th className="py-2">Status</th>
                 </tr>
               </thead>
-              <tbody className="divide-y">
+              <tbody className="divide-y divide-terminal-border">
                 {Object.entries(securityHeaders.headers)
                   .slice(0, 12)
                   .map(([key, value]) => (
                     <tr key={key}>
-                      <td className="py-2 pr-4 font-medium text-gray-800">{key}</td>
-                      <td className="py-2 text-gray-700 break-all">{String(value)}</td>
+                      <td className="py-2 pr-4 font-medium text-terminal-white">{key}</td>
+                      <td className="py-2 text-terminal-dim break-all">{String(value)}</td>
                     </tr>
                   ))}
               </tbody>
@@ -122,7 +144,7 @@ export default function ResultDetail() {
         )}
 
         {securityStatus === "ready" && !securityHeaders?.headers && !securityHeaders?.error && (
-          <div className="text-sm text-gray-500">No header details available.</div>
+          <div className="text-sm text-terminal-dim">No header details available.</div>
         )}
       </Card>
 
@@ -135,71 +157,71 @@ export default function ResultDetail() {
             <Stat label="Cert Expiry (days)" value={ssl.expires_in_days !== undefined ? String(ssl.expires_in_days) : "N/A"} />
           </div>
 
-          <div className="grid md:grid-cols-3 gap-3 text-sm text-gray-800 mb-4">
+          <div className="grid md:grid-cols-3 gap-3 text-sm text-terminal-white mb-4">
             <Stat label="Protocol Score" value={ssl.protocol_score !== undefined ? String(ssl.protocol_score) : "N/A"} />
             <Stat label="Key Exchange Score" value={ssl.key_exchange_score !== undefined ? String(ssl.key_exchange_score) : "N/A"} />
             <Stat label="Cipher Strength Score" value={ssl.cipher_strength_score !== undefined ? String(ssl.cipher_strength_score) : "N/A"} />
           </div>
 
-          <div className="grid md:grid-cols-2 gap-3 text-sm text-gray-800">
+          <div className="grid md:grid-cols-2 gap-3 text-sm text-terminal-white">
             <div>
-              <div className="text-gray-500 text-xs uppercase mb-1">Supported Versions</div>
-              <div className="bg-gray-50 border border-gray-100 rounded-lg p-3 break-words">
+              <div className="text-terminal-dim text-xs uppercase mb-1">Supported Versions</div>
+              <div className="bg-terminal-bg border border-terminal-border rounded-md p-3 break-words">
                 {ssl.supported_versions?.length ? ssl.supported_versions.join(", ") : "-"}
               </div>
             </div>
             <div>
-              <div className="text-gray-500 text-xs uppercase mb-1">Weak Protocols</div>
-              <div className="bg-gray-50 border border-gray-100 rounded-lg p-3 break-words">
+              <div className="text-terminal-dim text-xs uppercase mb-1">Weak Protocols</div>
+              <div className="bg-terminal-bg border border-terminal-border rounded-md p-3 break-words">
                 {ssl.weak_versions?.length ? ssl.weak_versions.join(", ") : "None"}
               </div>
             </div>
             <div>
-              <div className="text-gray-500 text-xs uppercase mb-1">Key</div>
-              <div className="bg-gray-50 border border-gray-100 rounded-lg p-3 break-words">
+              <div className="text-terminal-dim text-xs uppercase mb-1">Key</div>
+              <div className="bg-terminal-bg border border-terminal-border rounded-md p-3 break-words">
                 {(ssl.key_algorithm || "N/A") + (ssl.key_size ? ` ${ssl.key_size} bits` : "")}
               </div>
             </div>
             <div>
-              <div className="text-gray-500 text-xs uppercase mb-1">Negotiated Ciphers</div>
-              <div className="bg-gray-50 border border-gray-100 rounded-lg p-3 break-words">
+              <div className="text-terminal-dim text-xs uppercase mb-1">Negotiated Ciphers</div>
+              <div className="bg-terminal-bg border border-terminal-border rounded-md p-3 break-words">
                 {ssl.negotiated_ciphers?.length ? ssl.negotiated_ciphers.join(", ") : "-"}
               </div>
             </div>
             <div>
-              <div className="text-gray-500 text-xs uppercase mb-1">Certificate Subject</div>
-              <div className="bg-gray-50 border border-gray-100 rounded-lg p-3 break-words">
+              <div className="text-terminal-dim text-xs uppercase mb-1">Certificate Subject</div>
+              <div className="bg-terminal-bg border border-terminal-border rounded-md p-3 break-words">
                 {ssl.cert_subject || "N/A"}
               </div>
             </div>
             <div>
-              <div className="text-gray-500 text-xs uppercase mb-1">Certificate Issuer</div>
-              <div className="bg-gray-50 border border-gray-100 rounded-lg p-3 break-words">
+              <div className="text-terminal-dim text-xs uppercase mb-1">Certificate Issuer</div>
+              <div className="bg-terminal-bg border border-terminal-border rounded-md p-3 break-words">
                 {ssl.cert_issuer || "N/A"}
               </div>
             </div>
             <div>
-              <div className="text-gray-500 text-xs uppercase mb-1">Valid From</div>
-              <div className="bg-gray-50 border border-gray-100 rounded-lg p-3 break-words">
+              <div className="text-terminal-dim text-xs uppercase mb-1">Valid From</div>
+              <div className="bg-terminal-bg border border-terminal-border rounded-md p-3 break-words">
                 {ssl.cert_not_before || "N/A"}
               </div>
             </div>
             <div>
-              <div className="text-gray-500 text-xs uppercase mb-1">Valid To</div>
-              <div className="bg-gray-50 border border-gray-100 rounded-lg p-3 break-words">
+              <div className="text-terminal-dim text-xs uppercase mb-1">Valid To</div>
+              <div className="bg-terminal-bg border border-terminal-border rounded-md p-3 break-words">
                 {ssl.cert_not_after || "N/A"}
               </div>
             </div>
             <div>
-              <div className="text-gray-500 text-xs uppercase mb-1">SAN (DNS)</div>
-              <div className="bg-gray-50 border border-gray-100 rounded-lg p-3 break-words">
+              <div className="text-terminal-dim text-xs uppercase mb-1">SAN (DNS)</div>
+              <div className="bg-terminal-bg border border-terminal-border rounded-md p-3 break-words">
                 {ssl.cert_san?.length ? ssl.cert_san.join(", ") : "-"}
               </div>
             </div>
             {ssl.ssllabs_grade && (
               <div>
-                <div className="text-gray-500 text-xs uppercase mb-1">SSL Labs Grade</div>
-                <div className="bg-gray-50 border border-gray-100 rounded-lg p-3 break-words">
+                <div className="text-terminal-dim text-xs uppercase mb-1">SSL Labs Grade</div>
+                <div className="bg-terminal-bg border border-terminal-border rounded-md p-3 break-words">
                   {ssl.ssllabs_grade} ({ssl.ssllabs_status || "READY"})
                 </div>
               </div>
@@ -208,12 +230,12 @@ export default function ResultDetail() {
 
           {ssl.findings?.length ? (
             <div className="mt-4">
-              <div className="text-gray-500 text-xs uppercase mb-1">Findings</div>
-              <ul className="bg-gray-50 border border-gray-100 rounded-lg divide-y text-sm">
+              <div className="text-terminal-dim text-xs uppercase mb-1">Findings</div>
+              <ul className="bg-terminal-bg border border-terminal-border rounded-md divide-y divide-terminal-border text-sm">
                 {ssl.findings.slice(0, 10).map((f: any) => (
                   <li key={f.id} className="p-3">
-                    <span className="font-semibold uppercase text-xs mr-2">[{f.severity}]</span>
-                    <span className="text-gray-800">{f.message}</span>
+                    <span className="font-semibold uppercase text-xs mr-2 text-terminal-magenta">[{f.severity}]</span>
+                    <span className="text-terminal-white">{f.message}</span>
                   </li>
                 ))}
               </ul>
@@ -257,7 +279,7 @@ export default function ResultDetail() {
           <ViewSection label="Repeat View (Warm Cache)" view={wpt.repeat_view} />
 
           {wpt.error && (
-            <div className="text-sm text-red-500 mt-2">WebPageTest error: {wpt.error}</div>
+            <div className="text-sm text-terminal-magenta mt-2">WebPageTest error: {wpt.error}</div>
           )}
         </Card>
       )}
@@ -270,8 +292,8 @@ export default function ResultDetail() {
             <Stat label="Grade" value={lighthouse.grade || "N/A"} />
           </div>
           {lighthouse.categories && (
-            <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4 mb-4">
-              <div className="text-xs uppercase text-gray-500 mb-3">Scores</div>
+            <div className="rounded-md border border-terminal-border bg-terminal-surface2 p-4 mb-4 shadow-terminal">
+              <div className="text-xs uppercase text-terminal-dim mb-3">Scores</div>
               <div className="grid md:grid-cols-5 gap-3 text-sm">
                 <ScoreBox label="Performance" value={lighthouse.categories?.performance} />
                 <ScoreBox label="Accessibility" value={lighthouse.categories?.accessibility} />
@@ -292,7 +314,7 @@ export default function ResultDetail() {
             </div>
           )}
           {lighthouse.error && (
-            <div className="text-sm text-red-500 mt-2">Lighthouse error: {lighthouse.error}</div>
+            <div className="text-sm text-terminal-magenta mt-2">Lighthouse error: {lighthouse.error}</div>
           )}
         </Card>
       )}
@@ -302,9 +324,9 @@ export default function ResultDetail() {
 
 function Stat({ label, value }: { label: string; value: any }) {
   return (
-    <div className="bg-gray-50 rounded-xl p-4 border border-gray-100 min-w-0">
-      <div className="text-xs uppercase text-gray-500 tracking-wide">{label}</div>
-      <div className="text-lg font-semibold text-gray-800 mt-1 break-words">{value ?? "N/A"}</div>
+    <div className="bg-terminal-bg rounded-md p-4 border border-terminal-border min-w-0">
+      <div className="text-xs uppercase text-terminal-dim tracking-wide">{label}</div>
+      <div className="text-lg font-semibold text-terminal-phosphor mt-1 break-words">{value ?? "N/A"}</div>
     </div>
   )
 }
@@ -318,10 +340,10 @@ function ViewSection({ label, view }: { label: string; view: any }) {
   const waterfall = view.waterfall || []
 
   return (
-    <div className="border border-gray-100 rounded-2xl p-4 mb-4 bg-gray-50">
+    <div className="border border-terminal-border rounded-md p-4 mb-4 bg-terminal-bg">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 mb-3">
-        <div className="text-sm font-semibold text-gray-800">{label}</div>
-        <div className="flex flex-wrap gap-2 text-xs text-gray-600">
+        <div className="text-sm font-semibold text-terminal-phosphor">{label}</div>
+        <div className="flex flex-wrap gap-2 text-xs text-terminal-dim">
           <Badge label="TTFB" value={timing.ttfb_ms} suffix="ms" />
           <Badge label="DCL" value={timing.dom_content_loaded_ms} suffix="ms" />
           <Badge label="Load" value={timing.load_event_ms} suffix="ms" />
@@ -343,7 +365,7 @@ function ViewSection({ label, view }: { label: string; view: any }) {
         <div className="overflow-x-auto text-sm">
           <table className="w-full min-w-[640px]">
             <thead>
-              <tr className="text-left text-gray-500 text-xs uppercase">
+              <tr className="text-left text-terminal-dim text-xs uppercase">
                 <th className="py-2 pr-3">Resource</th>
                 <th className="py-2 pr-3">Initiator</th>
                 <th className="py-2 pr-3">Start (ms)</th>
@@ -351,14 +373,14 @@ function ViewSection({ label, view }: { label: string; view: any }) {
                 <th className="py-2">Transfer (KB)</th>
               </tr>
             </thead>
-            <tbody className="divide-y">
+            <tbody className="divide-y divide-terminal-border">
               {waterfall.slice(0, 12).map((r: any, idx: number) => (
                 <tr key={`${r.name}-${idx}`}>
-                  <td className="py-2 pr-3 text-gray-800 break-all max-w-[320px]">{r.name}</td>
-                  <td className="py-2 pr-3 text-gray-700">{r.initiatorType || "-"}</td>
-                  <td className="py-2 pr-3 text-gray-700">{typeof r.startTime === "number" ? r.startTime.toFixed(2) : "-"}</td>
-                  <td className="py-2 pr-3 text-gray-700">{typeof r.duration === "number" ? r.duration.toFixed(2) : "-"}</td>
-                  <td className="py-2 text-gray-700">{typeof r.transferSize === "number" ? (r.transferSize / 1024).toFixed(2) : "0.00"}</td>
+                  <td className="py-2 pr-3 text-terminal-white break-all max-w-[320px]">{r.name}</td>
+                  <td className="py-2 pr-3 text-terminal-dim">{r.initiatorType || "-"}</td>
+                  <td className="py-2 pr-3 text-terminal-dim">{typeof r.startTime === "number" ? r.startTime.toFixed(2) : "-"}</td>
+                  <td className="py-2 pr-3 text-terminal-dim">{typeof r.duration === "number" ? r.duration.toFixed(2) : "-"}</td>
+                  <td className="py-2 text-terminal-dim">{typeof r.transferSize === "number" ? (r.transferSize / 1024).toFixed(2) : "0.00"}</td>
                 </tr>
               ))}
             </tbody>
@@ -372,9 +394,9 @@ function ViewSection({ label, view }: { label: string; view: any }) {
 function Badge({ label, value, suffix }: { label: string; value: any; suffix?: string }) {
   if (value === undefined || value === null || value === "") return null
   return (
-    <span className="px-2 py-1 rounded-full bg-white border text-gray-700 shadow-sm">
-      <span className="font-semibold mr-1 text-gray-900">{label}</span>
-      <span className="text-gray-700">
+    <span className="px-2 py-1 rounded-md bg-terminal-surface border border-terminal-border text-terminal-dim">
+      <span className="font-semibold mr-1 text-terminal-white">{label}</span>
+      <span className="text-terminal-dim">
         {typeof value === "number" ? value.toFixed(2) : String(value)}{suffix ? ` ${suffix}` : ""}
       </span>
     </span>
@@ -383,9 +405,9 @@ function Badge({ label, value, suffix }: { label: string; value: any; suffix?: s
 
 function SmallStat({ title, value }: { title: string; value: any }) {
   return (
-    <div className="bg-white border border-gray-100 rounded-lg p-3 min-w-0">
-      <div className="text-xs uppercase text-gray-500">{title}</div>
-      <div className="text-base font-semibold text-gray-800 mt-1 break-words">{value ?? "N/A"}</div>
+    <div className="bg-terminal-surface border border-terminal-border rounded-md p-3 min-w-0">
+      <div className="text-xs uppercase text-terminal-dim">{title}</div>
+      <div className="text-base font-semibold text-terminal-white mt-1 break-words">{value ?? "N/A"}</div>
     </div>
   )
 }
@@ -402,9 +424,9 @@ function formatKb(val: any) {
 
 function ScoreBox({ label, value }: { label: string; value: any }) {
   return (
-    <div className="bg-white border border-gray-100 rounded-xl p-4 text-center shadow-sm">
-      <div className="text-xs uppercase text-gray-500 mb-2">{label}</div>
-      <div className="text-2xl font-bold text-gray-900">{value ?? "N/A"}</div>
+    <div className="bg-terminal-surface border border-terminal-border rounded-md p-4 text-center shadow-terminal">
+      <div className="text-xs uppercase text-terminal-dim mb-2">{label}</div>
+      <div className="text-2xl font-bold text-terminal-phosphor">{value ?? "N/A"}</div>
     </div>
   )
 }

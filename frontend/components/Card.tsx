@@ -6,9 +6,9 @@ export default function Card({
   children: React.ReactNode
 }) {
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+    <div className="bg-terminal-surface border border-terminal-border shadow-terminal p-6 rounded-md">
       {title && (
-        <h2 className="text-lg font-semibold mb-6 break-words">
+        <h2 className="text-lg font-semibold mb-6 break-words text-terminal-phosphor">
           {title}
         </h2>
       )}

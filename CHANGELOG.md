@@ -1,5 +1,28 @@
 # Changelog
 
+All notable changes to this project will be documented in this file.
+
+The format is based on Keep a Changelog, and this project follows Semantic Versioning.
+
+## [0.2.0] - 2026-02-21
+
+### Added
+- JWT authentication with 2 roles: `admin` and `user`.
+- Admin bootstrap via `INITIAL_ADMIN_*` env vars (create if missing; update role/email; rotate password if changed).
+- Admin-only Users management page (list + create users).
+- Result attribution fields (`run_by` id/username) and access control (users see only their own runs; admins see all).
+- Terminal-style UI revamp with theme + font switcher (themes: `matrix`, `amber`, `cyberpunk`, `midnight`; fonts: `modern`, `classic`, `geometric`, `retro`).
+- Ubuntu VM runners for no-Docker setup (`scripts/run-backend-ubuntu.sh`, `scripts/run-frontend-ubuntu.sh`) using `scripts/.env`.
+
+### Changed
+- Frontend navigation and styling updated to terminal theme across dashboard, load test, results, users, and profile.
+- Builder vs upload mode navigation updated to tab-style menu.
+
+### Fixed
+- Docker Compose networking issues for MySQL by using service-name addressing (no `localhost` inside containers).
+- Frontend proxy header forwarding stabilized for `Authorization` bearer token.
+- Hydration mismatch issues by separating root server layout from client app shell.
+
 ## [0.1.0] - 2026-02-05
 - Add progress step indicators (Security Headers, SSL/TLS, WebPageTest, Lighthouse) to builder and upload flows.
 - Integrate Lighthouse with Playwright Chromium; capture performance categories and key metrics.
@@ -10,4 +33,3 @@
 - Add pagination params to results API for faster dashboard loads.
 - Retry Gemini analysis on 503/overload; graceful fallback message.
 - PDF table alignment improvements for security/SSL/WPT/Lighthouse sections.
-

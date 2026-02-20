@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
+import { useAuth } from "@/context/AuthContext"
 
 interface Stage {
   duration: string
@@ -10,6 +11,7 @@ interface Stage {
 
 export default function RunForm() {
   const router = useRouter()
+  const { token } = useAuth()
 
   const [projectName, setProjectName] = useState("")
   const [url, setUrl] = useState("")
@@ -99,18 +101,24 @@ export default function RunForm() {
     let elapsed = 0
 
     try {
-      const response = await fetch(`${API_BASE}/api/run`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          project_name: projectName,
-          url,
-          stages,
-        }),
-        cache: "no-store",
-      })
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    }
+
+    if (token) {
+      headers.Authorization = `Bearer ${token}`
+    }
+
+    const response = await fetch(`${API_BASE}/api/run`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        project_name: projectName,
+        url,
+        stages,
+      }),
+      cache: "no-store",
+    })
 
       if (!response.body) throw new Error("No stream")
 
@@ -323,7 +331,7 @@ export default function RunForm() {
           onClick={() =>
             setStages([...stages, { duration: "", target: 0 }])
           }
-          className="text-indigo-600 text-sm font-medium hover:underline"
+          className="text-terminal-cyan text-sm font-medium hover:underline"
         >
           + Add Stage
         </button>
@@ -333,37 +341,40 @@ export default function RunForm() {
       <button
         onClick={handleSubmit}
         disabled={loading}
-        className={`px-6 py-3 rounded-xl text-white font-medium transition ${
+        className={`px-6 py-3 border text-sm font-semibold uppercase tracking-widest transition ${
           loading
-            ? "bg-gray-400 cursor-not-allowed"
-            : "bg-indigo-600 hover:bg-indigo-700"
+            ? "border-terminal-border text-terminal-dim cursor-not-allowed"
+            : "border-terminal-phosphor text-terminal-phosphor hover:bg-terminal-phosphor hover:text-black"
         }`}
       >
-        {loading ? "Running..." : "Run Load Test"}
+        {loading ? "> RUNNING..." : "> RUN LOAD TEST"}
       </button>
 
       {/* STREAM MODAL */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white w-[600px] max-h-[520px] rounded-2xl p-6 shadow-xl flex flex-col">
-            <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-              Running Load Test...
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
+          <div
+            className="border border-terminal-border bg-terminal-surface w-[600px] max-h-[520px] p-6 shadow-terminal flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="text-lg font-semibold mb-4 flex items-center gap-2 text-terminal-phosphor">
+              &gt; RUNNING LOAD TEST
               {loading && (
-                <span className="w-2 h-2 bg-indigo-600 rounded-full animate-ping" />
+                <span className="w-2 h-2 bg-terminal-phosphor rounded-full animate-ping" />
               )}
             </h2>
 
-            <div className="w-full bg-gray-200 rounded-full h-3 mb-2 overflow-hidden">
+            <div className="w-full border border-terminal-border bg-terminal-bg h-3 mb-2 overflow-hidden">
               <div
-                className={`h-full bg-indigo-600 transition-all duration-500 ${
+                className={`h-full bg-terminal-phosphor transition-all duration-500 ${
                   loading ? "animate-subtle-pulse" : ""
                 }`}
                 style={{ width: `${progress}%` }}
               />
             </div>
 
-            <div className="text-sm text-gray-600 mb-4">
-              {progress}% Complete
+            <div className="text-sm text-terminal-dim mb-4">
+              {progress}% complete
             </div>
 
             <div className="grid grid-cols-2 gap-2 mb-4 text-xs">
@@ -378,20 +389,20 @@ export default function RunForm() {
                   <span
                     className={`w-2 h-2 rounded-full ${
                       steps[step.key] === "done"
-                        ? "bg-green-500"
+                        ? "bg-terminal-cyan"
                         : steps[step.key] === "running"
-                        ? "bg-yellow-400 animate-pulse"
+                        ? "bg-terminal-amber animate-pulse"
                         : steps[step.key] === "skip"
-                        ? "bg-gray-400"
-                        : "bg-gray-300"
+                        ? "bg-terminal-dim"
+                        : "bg-terminal-border"
                     }`}
                   />
-                  <span className="text-gray-700">{step.label}</span>
+                  <span className="text-terminal-white">{step.label}</span>
                 </div>
               ))}
             </div>
 
-            <div className="bg-black text-green-400 font-mono text-xs p-4 rounded-lg overflow-y-auto flex-1">
+            <div className="border border-terminal-border bg-terminal-bg text-terminal-phosphor font-mono text-xs p-4 overflow-y-auto flex-1">
               {logs.map((log, i) => (
                 <div key={i}>{log}</div>
               ))}

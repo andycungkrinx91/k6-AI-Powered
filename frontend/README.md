@@ -8,6 +8,29 @@ Modern performance testing dashboard built with:
 - Recharts (data visualization)
 - TypeScript
 
+Runtime requirements:
+
+- Node.js 24.x (see `frontend/package.json` engines)
+- pnpm 9.x
+
+## 🔐 Authentication
+
+- The Next.js app now requires authentication before accessing dashboards or running tests. Use `/login` to authenticate with username/email + password.
+- On a fresh install, backend bootstraps an admin account from `INITIAL_ADMIN_*` environment variables.
+- Administrators get a dedicated `Users` menu where they can list existing accounts and mint new admin/user credentials with username, email, password, and role.
+- All users get a `Profile` page to rotate their password; load test results record the `run_by` identity for auditing.
+- Axios-style proxy (`/api/backend`) forwards the JWT and backend API key automatically after you log in.
+
+## 🎛 Theme & Font Switcher
+
+- Default theme: Linux terminal (matrix)
+- Themes: `matrix`, `amber`, `cyberpunk`, `midnight`
+- Fonts: `modern`, `classic`, `geometric`, `retro`
+- Persisted in localStorage:
+  - `k6-theme`
+  - `k6-font`
+- UI entry point: Sidebar settings (top)
+
 This frontend connects to the FastAPI backend and provides:
 
 - Builder Mode (visual load test creation)
@@ -16,6 +39,7 @@ This frontend connects to the FastAPI backend and provides:
 - Animated dashboards
 - Performance trend charts
 - Result history table with filtering, sorting, pagination
+- Role-based navigation (admin user management)
 
 ---
 
@@ -69,6 +93,10 @@ BACKEND_API_KEY=your_backend_api_key_here
 ```
 
 These values are read server-side by `app/api/backend/[...path]/route.ts` and are not exposed to the browser (do not prefix with `NEXT_PUBLIC_`).
+
+VM helper:
+
+- You can manage these values via `scripts/.env` and run `bash scripts/run-frontend-ubuntu.sh`.
 
 ---
 
@@ -180,6 +208,13 @@ Frontend auto redirects to:
 ```
 /result/{id}
 ```
+
+Authentication flow:
+
+- First page: `/login`
+- After login, the dashboard shows a greeting: `Welcome <username>, lets do a great work today!`
+- Admin users see an extra menu: `/users` (user directory + create user)
+- Profile page: `/profile` (update password)
 
 ---
 

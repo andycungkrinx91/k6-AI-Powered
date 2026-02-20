@@ -1,6 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useState } from "react"
+import { useRouter } from "next/navigation"
 import { getResults } from "@/lib/api"
 import { motion } from "framer-motion"
 import {
@@ -19,6 +20,9 @@ import {
   Bar,
 } from "recharts"
 import Link from "next/link"
+import { useAuth } from "@/context/AuthContext"
+import Card from "@/components/Card"
+import ThemeFontSwitcher from "@/components/ThemeFontSwitcher"
 
 interface ResultItem {
   id: string
@@ -27,9 +31,11 @@ interface ResultItem {
   result_json?: any
 }
 
-  const COLORS = ["#10B981", "#6366F1", "#F59E0B", "#F97316", "#EF4444", "#0EA5E9", "#A855F7"]
+const COLORS = ["#10B981", "#6366F1", "#F59E0B", "#F97316", "#EF4444", "#0EA5E9", "#A855F7"]
 
 export default function DashboardPage() {
+  const router = useRouter()
+  const { user, token, ready } = useAuth()
   const [results, setResults] = useState<ResultItem[]>([])
   const [counter, setCounter] = useState({
     total: 0,
@@ -41,12 +47,27 @@ export default function DashboardPage() {
   })
 
   useEffect(() => {
-    async function load() {
-      const data = await getResults(50, 0)
-      setResults(data)
+    if (!token) {
+      return
     }
+
+    async function load() {
+      try {
+        const data = await getResults(50, 0, token)
+        setResults(data)
+      } catch (error) {
+        console.error("Failed to load results", error)
+      }
+    }
+
     load()
-  }, [])
+  }, [token])
+
+  useEffect(() => {
+    if (ready && !user) {
+      router.replace("/login")
+    }
+  }, [ready, user, router])
 
   const animateCounter = useCallback((total: number, avg: number, tlsPct: number, secPct: number, wptAvg: number, lhAvg: number) => {
     let t = 0
@@ -224,13 +245,12 @@ export default function DashboardPage() {
     .slice(0, 10)
     .reverse()
     .map((r) => ({
-      date: new Date(r.created_at).toLocaleDateString(),
+      // Use a stable UTC date string to avoid SSR/client locale hydration mismatches.
+      date: new Date(r.created_at).toISOString().slice(0, 10),
       score: r.result_json?.scorecard?.score ?? 0,
       errorRate:
         r.result_json?.metrics?.checks?.error_rate ?? 0,
     }))
-
-  /* -------- Grade Breakdown -------- */
 
   useEffect(() => {
     if (!results.length) return
@@ -256,6 +276,14 @@ export default function DashboardPage() {
     return stopAnimation
   }, [results, animateCounter, aggregates])
 
+  if (!ready || !user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-sm text-terminal-dim">Preparing your workspace…</div>
+      </div>
+    )
+  }
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -263,14 +291,11 @@ export default function DashboardPage() {
       transition={{ duration: 0.4 }}
       className="space-y-10 pb-10"
     >
-      {/* HERO */}
-      <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-3xl p-8 shadow-xl">
-        <h1 className="text-3xl font-bold mb-2">
-          Performance Intelligence
-        </h1>
-        <p className="text-indigo-100">
-          SLA scoring & error analytics overview
-        </p>
+      <div className="flex items-center justify-between gap-4">
+        <div className="text-terminal-phosphor text-2xl font-semibold">Dashboard</div>
+        <div className="hidden sm:block">
+          <ThemeFontSwitcher />
+        </div>
       </div>
 
       {/* KPI */}
@@ -284,8 +309,8 @@ export default function DashboardPage() {
       </div>
 
       {/* CHARTS */}
-      <div className="bg-white rounded-2xl shadow p-6">
-        <h2 className="text-lg font-semibold mb-4">
+      <div className="border border-terminal-border bg-terminal-surface shadow-terminal p-6 rounded-md">
+        <h2 className="text-lg font-semibold mb-4 text-terminal-phosphor">
           Score & Error Rate Trend
         </h2>
 
@@ -293,20 +318,27 @@ export default function DashboardPage() {
           <LineChart data={trendData}>
             <defs>
               <linearGradient id="scoreGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#6366F1" stopOpacity={0.8}/>
-                <stop offset="95%" stopColor="#6366F1" stopOpacity={0}/>
+                <stop offset="5%" stopColor="#39FF14" stopOpacity={0.55} />
+                <stop offset="95%" stopColor="#39FF14" stopOpacity={0} />
               </linearGradient>
             </defs>
 
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="date" />
-            <YAxis domain={[0, 100]} />
-            <Tooltip />
+            <CartesianGrid strokeDasharray="3 3" stroke="rgba(57,255,20,0.14)" />
+            <XAxis dataKey="date" stroke="rgba(234,251,230,0.65)" />
+            <YAxis domain={[0, 100]} stroke="rgba(234,251,230,0.65)" />
+            <Tooltip
+              contentStyle={{
+                background: "rgba(10,12,10,0.95)",
+                border: "1px solid rgba(26,46,26,1)",
+                color: "rgba(234,251,230,0.95)",
+              }}
+              labelStyle={{ color: "rgba(57,255,20,0.9)" }}
+            />
 
             <Line
               type="monotone"
               dataKey="score"
-              stroke="#6366F1"
+              stroke="#39FF14"
               strokeWidth={3}
               dot={{ r: 4 }}
               fill="url(#scoreGradient)"
@@ -316,7 +348,7 @@ export default function DashboardPage() {
             <Line
               type="monotone"
               dataKey="errorRate"
-              stroke="#EF4444"
+              stroke="#FF0055"
               strokeWidth={2}
               dot={false}
               animationDuration={1200}
@@ -327,7 +359,7 @@ export default function DashboardPage() {
 
       <div className="grid md:grid-cols-2 gap-6">
         {/* Score Breakdown */}
-        <div className="bg-white rounded-2xl shadow p-6">
+        <div className="border border-terminal-border bg-terminal-surface shadow-terminal p-6 rounded-md">
           <h2 className="text-lg font-semibold mb-4">Score Breakdown</h2>
           <ResponsiveContainer width="100%" height={360}>
             <PieChart>
@@ -352,7 +384,7 @@ export default function DashboardPage() {
         </div>
 
         {/* TLS Coverage */}
-        <div className="bg-white rounded-2xl shadow p-6">
+        <div className="border border-terminal-border bg-terminal-surface shadow-terminal p-6 rounded-md">
           <h2 className="text-lg font-semibold mb-4">TLS Coverage</h2>
           <ResponsiveContainer width="100%" height={320}>
             <BarChart data={tlsCoverage} margin={{ top: 10, right: 20, bottom: 20, left: 0 }}>
@@ -368,7 +400,7 @@ export default function DashboardPage() {
 
       <div className="grid md:grid-cols-2 gap-6">
         {/* SECURITY & SSL BREAKDOWN */}
-        <div className="bg-white rounded-2xl shadow p-6">
+        <div className="border border-terminal-border bg-terminal-surface shadow-terminal p-6 rounded-md">
           <h2 className="text-lg font-semibold mb-4">Security Header Grades</h2>
           <ResponsiveContainer width="100%" height={320}>
             <PieChart>
@@ -392,7 +424,7 @@ export default function DashboardPage() {
           </ResponsiveContainer>
         </div>
 
-        <div className="bg-white rounded-2xl shadow p-6">
+        <div className="border border-terminal-border bg-terminal-surface shadow-terminal p-6 rounded-md">
           <h2 className="text-lg font-semibold mb-4">SSL Ratings</h2>
           <ResponsiveContainer width="100%" height={320}>
             <PieChart>
@@ -419,7 +451,7 @@ export default function DashboardPage() {
 
       <div className="grid md:grid-cols-2 gap-6">
         {/* WebPageTest Score Buckets */}
-        <div className="bg-white rounded-2xl shadow p-6">
+        <div className="border border-terminal-border bg-terminal-surface shadow-terminal p-6 rounded-md">
           <h2 className="text-lg font-semibold mb-4">WebPageTest Scores</h2>
           <ResponsiveContainer width="100%" height={360}>
             <PieChart>
@@ -444,7 +476,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Lighthouse Performance Buckets */}
-        <div className="bg-white rounded-2xl shadow p-6">
+        <div className="border border-terminal-border bg-terminal-surface shadow-terminal p-6 rounded-md">
           <h2 className="text-lg font-semibold mb-4">Lighthouse Performance Scores</h2>
           <ResponsiveContainer width="100%" height={360}>
             <PieChart>
@@ -470,8 +502,8 @@ export default function DashboardPage() {
       </div>
 
       {/* RECENT ACTIVITY */}
-      <div className="bg-white rounded-2xl shadow p-6">
-        <h2 className="text-lg font-semibold mb-4">
+      <div className="border border-terminal-border bg-terminal-surface shadow-terminal p-6 rounded-md">
+        <h2 className="text-lg font-semibold mb-4 text-terminal-phosphor">
           Recent Activity
         </h2>
 
@@ -480,19 +512,19 @@ export default function DashboardPage() {
             <Link
               key={r.id}
               href={`/result/${r.id}`}
-              className="block p-3 rounded-xl hover:bg-gray-50 transition"
+              className="block p-3 border border-terminal-border hover:bg-terminal-surface2 transition-none"
             >
-              <div className="font-semibold text-orange-600">
+              <div className="font-semibold text-terminal-amber">
                 {r.project_name}
               </div>
-              <div className="text-xs text-gray-500">
-                {new Date(r.created_at).toLocaleString()}
+              <div className="text-xs text-terminal-dim">
+                {new Date(r.created_at).toISOString().replace("T", " ").slice(0, 19)}
               </div>
             </Link>
           ))}
 
           {results.length === 0 && (
-            <div className="text-gray-400 text-sm">
+            <div className="text-terminal-dim text-sm">
               No activity yet.
             </div>
           )}
@@ -506,15 +538,10 @@ export default function DashboardPage() {
 
 function KPI({ title, value }: { title: string; value: any }) {
   return (
-    <motion.div
-      whileHover={{ y: -4 }}
-      className="bg-white rounded-2xl shadow p-6"
-    >
-      <div className="text-sm text-gray-500 mb-2">
-        {title}
-      </div>
-      <div className="text-3xl font-bold text-gray-800">
-        {value}
+    <motion.div whileHover={{}} className="border border-terminal-border bg-terminal-surface shadow-terminal p-6 rounded-md">
+      <div className="text-xs uppercase tracking-widest text-terminal-dim mb-3">{title}</div>
+      <div className="text-3xl font-semibold text-terminal-phosphor">
+        {value} <span className="cursor-block" aria-hidden="true" />
       </div>
     </motion.div>
   )

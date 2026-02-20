@@ -63,20 +63,26 @@ export default function ChartCard({
       >
         {ready ? (
           <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
-            <LineChart data={chartData}>
-              <XAxis dataKey="time" hide />
-              <YAxis />
-              <Tooltip />
-              <Line
-                type="monotone"
-                dataKey="value"
-                stroke="#6366f1"
-                strokeWidth={2}
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        ) : (
-          <div className="w-full h-full flex items-center justify-center text-xs text-gray-400">
+              <LineChart data={chartData}>
+                <XAxis dataKey="time" hide />
+                <YAxis stroke="rgba(234,251,230,0.65)" />
+                <Tooltip
+                  contentStyle={{
+                    background: "rgba(10,12,10,0.95)",
+                    border: "1px solid rgba(26,46,26,1)",
+                    color: "rgba(234,251,230,0.95)",
+                  }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="value"
+                  stroke="#00FFFF"
+                  strokeWidth={2}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          ) : (
+          <div className="w-full h-full flex items-center justify-center text-xs text-terminal-dim">
             Loading chart…
           </div>
         )}

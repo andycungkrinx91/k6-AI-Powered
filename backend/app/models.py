@@ -14,8 +14,30 @@ class LoadTest(Base):
     result_json = mapped_column(JSON, nullable=True)
     analysis = mapped_column(Text, nullable=True)
     pdf_path = mapped_column(Text, nullable=True)
+    user_id = mapped_column(String(36), nullable=True, index=True)
+    username = mapped_column(String(255), nullable=True)
     created_at = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
+        index=True,
+    )
+
+
+class User(Base):
+    __tablename__ = "users"
+    id = mapped_column(String(36), primary_key=True)
+    username = mapped_column(String(255), unique=True, index=True, nullable=False)
+    email = mapped_column(String(255), unique=True, index=True, nullable=False)
+    hashed_password = mapped_column(Text, nullable=False)
+    role = mapped_column(String(16), nullable=False, server_default="user")
+    created_at = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        index=True,
+    )
+    updated_at = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
         index=True,
     )

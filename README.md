@@ -89,10 +89,20 @@ Frontend (Next.js)  ⇄  Backend (FastAPI)  ⇄  k6 Engine  ⇄  Gemini AI  ⇄ 
 - Next.js (App Router)
 - React 19
 - TypeScript
-- TailwindCSS
+- TailwindCSS 4
 - Recharts
 - SSE Streaming
 - Animated UI components
+
+UI theme:
+
+- Default look is Linux terminal (matrix)
+- Built-in Theme + Font switcher (persisted in localStorage)
+
+Runtime requirements (local dev):
+
+- Node.js 24.x
+- pnpm 9.x
 
 📘 Detailed frontend documentation:
 
@@ -132,11 +142,35 @@ Frontend (Next.js)  ⇄  Backend (FastAPI)  ⇄  k6 Engine  ⇄  Gemini AI  ⇄ 
 - SLA + Security + SSL + WPT + Lighthouse badges in Result History
 - Animated KPI counters
 
+## 8️⃣ Terminal UI (Themes + Fonts)
+
+- 4 themes: `matrix` (default), `amber`, `cyberpunk`, `midnight`
+- Fonts: `modern`, `classic`, `geometric`, `retro`
+- Stored in localStorage keys: `k6-theme`, `k6-font`
+- Switcher entry point: Sidebar settings (top)
+
+Changelog:
+
+- See `CHANGELOG.md`
+
+## 7️⃣ Authentication (Admin/User)
+- Login with username/email + password
+- Roles: `admin` (create users) and `user` (run load tests)
+- Greeting banner after login
+- Profile page for password updates
+
 ## 6️⃣ Result Management
 - Sortable, paginated table with filtering
 - Mobile responsive cards with badge summaries
 - PDF download (load/security)
 - CLI reset endpoint
+
+## 7️⃣ Identity & Access Control
+- Admin + user roles enforced via JWTs (`/api/auth/login` returns an access token after supplying username/email + password)
+- Administrators can manage accounts through the new `Users` menu (list + create user with username/email/password/role)
+- Every user has a profile page to rotate their password
+- Load tests annotate results with the `run_by` id/username for auditing; every request now requires the backend API key plus the Bearer token
+- The initial admin account is kept in sync on backend startup using `INITIAL_ADMIN_*` environment variables (create if missing, rotate password/update role+email if different)
 
 ---
 
@@ -160,14 +194,30 @@ Located in:
 
 Each folder contains its own Dockerfile.
 
+VM (no Docker) backend runner:
+
+```
+bash scripts/run-backend-ubuntu.sh
+```
+
+VM (no Docker) frontend runner:
+
+```
+# Optional: create scripts/.env from template
+cp scripts/.env.example scripts/.env
+
+bash scripts/run-frontend-ubuntu.sh
+```
+
 ---
 
 # 🔐 Security Model
 
+- All API requests require the backend API key and a JWT bearing the logged-in identity; load tests record the user who ran them.
 - API key protected endpoints
-- Server‑side script validation
+- Server-side script validation
 - Captcha protection for upload mode (when enabled)
-- Gemini multi‑key fallback logic
+- Gemini multi-key fallback logic
 - No secrets exposed to frontend
 
 ---
