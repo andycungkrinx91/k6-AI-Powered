@@ -227,7 +227,7 @@ export default function RunScriptUpload() {
       {showModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
           <div
-            className="border border-terminal-border bg-terminal-surface w-[600px] max-h-[520px] rounded-md p-6 shadow-terminal flex flex-col relative"
+            className="border border-terminal-border bg-terminal-surface w-[calc(100vw-2rem)] max-w-[600px] max-h-[520px] rounded-md p-4 sm:p-6 shadow-terminal flex flex-col relative"
             onClick={(e) => e.stopPropagation()}
           >
 
@@ -253,7 +253,7 @@ export default function RunScriptUpload() {
               </div>
             )}
 
-            <div className="grid grid-cols-2 gap-2 mb-4 text-xs">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-4 text-xs">
               {[
                 { key: "load", label: "k6 Execution" },
                 { key: "security_headers", label: "Security Headers" },

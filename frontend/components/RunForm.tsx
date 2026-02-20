@@ -276,7 +276,7 @@ export default function RunForm() {
 
         {stages.map((stage, index) => (
           <div key={index} className="mb-3">
-            <div className="flex gap-4 items-center">
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 sm:items-center">
               <input
                 value={stage.duration}
                 placeholder="Duration (ex: 30s, 1m)"
@@ -285,7 +285,7 @@ export default function RunForm() {
                   updated[index].duration = e.target.value
                   setStages(updated)
                 }}
-                className={`border rounded-xl px-4 py-2 w-1/2 ${
+                className={`border rounded-xl px-4 py-2 w-full sm:w-1/2 ${
                   errors[`duration-${index}`] ? "border-red-500" : ""
                 }`}
               />
@@ -299,7 +299,7 @@ export default function RunForm() {
                   updated[index].target = Number(e.target.value)
                   setStages(updated)
                 }}
-                className={`border rounded-xl px-4 py-2 w-1/2 ${
+                className={`border rounded-xl px-4 py-2 w-full sm:w-1/2 ${
                   errors[`target-${index}`] ? "border-red-500" : ""
                 }`}
               />
@@ -310,7 +310,7 @@ export default function RunForm() {
                   onClick={() =>
                     setStages(stages.filter((_, i) => i !== index))
                   }
-                  className="text-red-500 text-lg px-2"
+                  className="text-red-500 text-lg px-2 self-start sm:self-auto"
                 >
                   ×
                 </button>
@@ -354,7 +354,7 @@ export default function RunForm() {
       {showModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
           <div
-            className="border border-terminal-border bg-terminal-surface w-[600px] max-h-[520px] p-6 shadow-terminal flex flex-col"
+            className="border border-terminal-border bg-terminal-surface w-[calc(100vw-2rem)] max-w-[600px] max-h-[520px] p-4 sm:p-6 shadow-terminal flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
             <h2 className="text-lg font-semibold mb-4 flex items-center gap-2 text-terminal-phosphor">

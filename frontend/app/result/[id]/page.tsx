@@ -103,7 +103,7 @@ export default function ResultDetail() {
       </div>
 
       <Card title="Security Headers">
-        <div className="grid md:grid-cols-4 gap-4 mb-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-4">
           <Stat label="Status" value={securityStatus} />
           <Stat label="Grade" value={securityHeaders?.score ?? securityHeaders?.grade ?? "N/A"} />
           <Stat label="Score" value={securityHeaders?.headers ? `${Object.values(securityHeaders.headers).filter((v) => v === "present").length}/${Object.keys(securityHeaders.headers).length}` : "N/A"} />
@@ -150,20 +150,20 @@ export default function ResultDetail() {
 
       {ssl && (
         <Card title="SSL / TLS Analysis">
-          <div className="grid md:grid-cols-3 gap-4 mb-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 mb-4">
             <Stat label="Status" value={ssl.status || "N/A"} />
             <Stat label="Rating" value={ssl.rating || ssl.ssllabs_grade || "N/A"} />
             <Stat label="Score" value={ssl.score !== undefined ? String(ssl.score) : "N/A"} />
             <Stat label="Cert Expiry (days)" value={ssl.expires_in_days !== undefined ? String(ssl.expires_in_days) : "N/A"} />
           </div>
 
-          <div className="grid md:grid-cols-3 gap-3 text-sm text-terminal-white mb-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 text-sm text-terminal-white mb-4">
             <Stat label="Protocol Score" value={ssl.protocol_score !== undefined ? String(ssl.protocol_score) : "N/A"} />
             <Stat label="Key Exchange Score" value={ssl.key_exchange_score !== undefined ? String(ssl.key_exchange_score) : "N/A"} />
             <Stat label="Cipher Strength Score" value={ssl.cipher_strength_score !== undefined ? String(ssl.cipher_strength_score) : "N/A"} />
           </div>
 
-          <div className="grid md:grid-cols-2 gap-3 text-sm text-terminal-white">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-terminal-white">
             <div>
               <div className="text-terminal-dim text-xs uppercase mb-1">Supported Versions</div>
               <div className="bg-terminal-bg border border-terminal-border rounded-md p-3 break-words">
@@ -246,7 +246,7 @@ export default function ResultDetail() {
 
       {wpt && Object.keys(wpt).length > 0 && (
         <Card title="WebPageTest (Playwright)">
-          <div className="grid md:grid-cols-3 gap-4 mb-4 text-sm">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 mb-4 text-sm">
             <Stat label="Status" value={wpt.status || "N/A"} />
             <Stat label="Agent" value={wpt.agent || "k6-ai-powerd-agent"} />
             <Stat label="Network" value={wpt.settings?.network_profile || "Simulated"} />
@@ -363,7 +363,7 @@ function ViewSection({ label, view }: { label: string; view: any }) {
 
       {waterfall.length > 0 && (
         <div className="overflow-x-auto text-sm">
-          <table className="w-full min-w-[640px]">
+          <table className="w-full min-w-[520px] sm:min-w-[640px]">
             <thead>
               <tr className="text-left text-terminal-dim text-xs uppercase">
                 <th className="py-2 pr-3">Resource</th>

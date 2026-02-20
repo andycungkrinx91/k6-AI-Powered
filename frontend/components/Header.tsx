@@ -16,7 +16,7 @@ export default function Header({
   const { user, logout, ready } = useAuth()
 
   return (
-    <header className="h-20 bg-terminal-surface border-b border-terminal-border flex items-center px-4 md:px-6 justify-between gap-4">
+    <header className="h-16 sm:h-20 bg-terminal-surface border-b border-terminal-border flex items-center px-4 md:px-6 justify-between gap-4">
 
       <div className="flex items-center gap-3">
         <button
@@ -34,7 +34,7 @@ export default function Header({
         </button>
 
         {user && (
-          <p className="text-sm text-terminal-phosphor font-semibold whitespace-nowrap">
+          <p className="hidden md:block text-sm text-terminal-phosphor font-semibold truncate max-w-[52vw]">
             Welcome {user.username}, lets do a great work today! <span className="cursor-block" aria-hidden="true" />
           </p>
         )}

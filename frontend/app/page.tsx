@@ -292,14 +292,14 @@ export default function DashboardPage() {
       className="space-y-10 pb-10"
     >
       <div className="flex items-center justify-between gap-4">
-        <div className="text-terminal-phosphor text-2xl font-semibold">Dashboard</div>
+        <div className="text-terminal-phosphor text-xl sm:text-2xl font-semibold">Dashboard</div>
         <div className="hidden sm:block">
           <ThemeFontSwitcher />
         </div>
       </div>
 
       {/* KPI */}
-      <div className="grid md:grid-cols-6 gap-6">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 sm:gap-6">
         <KPI title="Total Tests" value={counter.total} />
         <KPI title="Average Score" value={counter.avgScore || "N/A"} />
         {/* TLS coverage shown in chart below */}
@@ -309,7 +309,7 @@ export default function DashboardPage() {
       </div>
 
       {/* CHARTS */}
-      <div className="border border-terminal-border bg-terminal-surface shadow-terminal p-6 rounded-md">
+      <div className="border border-terminal-border bg-terminal-surface shadow-terminal p-4 sm:p-6 rounded-md">
         <h2 className="text-lg font-semibold mb-4 text-terminal-phosphor">
           Score & Error Rate Trend
         </h2>
@@ -357,9 +357,9 @@ export default function DashboardPage() {
         </ResponsiveContainer>
       </div>
 
-      <div className="grid md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
         {/* Score Breakdown */}
-        <div className="border border-terminal-border bg-terminal-surface shadow-terminal p-6 rounded-md">
+        <div className="border border-terminal-border bg-terminal-surface shadow-terminal p-4 sm:p-6 rounded-md">
           <h2 className="text-lg font-semibold mb-4">Score Breakdown</h2>
           <ResponsiveContainer width="100%" height={360}>
             <PieChart>
@@ -384,7 +384,7 @@ export default function DashboardPage() {
         </div>
 
         {/* TLS Coverage */}
-        <div className="border border-terminal-border bg-terminal-surface shadow-terminal p-6 rounded-md">
+        <div className="border border-terminal-border bg-terminal-surface shadow-terminal p-4 sm:p-6 rounded-md">
           <h2 className="text-lg font-semibold mb-4">TLS Coverage</h2>
           <ResponsiveContainer width="100%" height={320}>
             <BarChart data={tlsCoverage} margin={{ top: 10, right: 20, bottom: 20, left: 0 }}>
@@ -398,9 +398,9 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <div className="grid md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
         {/* SECURITY & SSL BREAKDOWN */}
-        <div className="border border-terminal-border bg-terminal-surface shadow-terminal p-6 rounded-md">
+        <div className="border border-terminal-border bg-terminal-surface shadow-terminal p-4 sm:p-6 rounded-md">
           <h2 className="text-lg font-semibold mb-4">Security Header Grades</h2>
           <ResponsiveContainer width="100%" height={320}>
             <PieChart>
@@ -424,7 +424,7 @@ export default function DashboardPage() {
           </ResponsiveContainer>
         </div>
 
-        <div className="border border-terminal-border bg-terminal-surface shadow-terminal p-6 rounded-md">
+        <div className="border border-terminal-border bg-terminal-surface shadow-terminal p-4 sm:p-6 rounded-md">
           <h2 className="text-lg font-semibold mb-4">SSL Ratings</h2>
           <ResponsiveContainer width="100%" height={320}>
             <PieChart>
@@ -449,9 +449,9 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <div className="grid md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
         {/* WebPageTest Score Buckets */}
-        <div className="border border-terminal-border bg-terminal-surface shadow-terminal p-6 rounded-md">
+        <div className="border border-terminal-border bg-terminal-surface shadow-terminal p-4 sm:p-6 rounded-md">
           <h2 className="text-lg font-semibold mb-4">WebPageTest Scores</h2>
           <ResponsiveContainer width="100%" height={360}>
             <PieChart>
@@ -476,7 +476,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Lighthouse Performance Buckets */}
-        <div className="border border-terminal-border bg-terminal-surface shadow-terminal p-6 rounded-md">
+        <div className="border border-terminal-border bg-terminal-surface shadow-terminal p-4 sm:p-6 rounded-md">
           <h2 className="text-lg font-semibold mb-4">Lighthouse Performance Scores</h2>
           <ResponsiveContainer width="100%" height={360}>
             <PieChart>
@@ -538,9 +538,9 @@ export default function DashboardPage() {
 
 function KPI({ title, value }: { title: string; value: any }) {
   return (
-    <motion.div whileHover={{}} className="border border-terminal-border bg-terminal-surface shadow-terminal p-6 rounded-md">
+    <motion.div whileHover={{}} className="border border-terminal-border bg-terminal-surface shadow-terminal p-4 sm:p-6 rounded-md">
       <div className="text-xs uppercase tracking-widest text-terminal-dim mb-3">{title}</div>
-      <div className="text-3xl font-semibold text-terminal-phosphor">
+      <div className="text-2xl sm:text-3xl font-semibold text-terminal-phosphor">
         {value} <span className="cursor-block" aria-hidden="true" />
       </div>
     </motion.div>

@@ -1,6 +1,6 @@
 "use client"
 
-import { ReactNode, useEffect, useState } from "react"
+import { ReactNode } from "react"
 import { createPortal } from "react-dom"
 
 type ModalProps = {
@@ -14,13 +14,9 @@ export default function Modal({
   onClose,
   title,
 }: ModalProps) {
-  const [mounted, setMounted] = useState(false)
-
-  useEffect(() => {
-    setMounted(true)
-  }, [])
-
-  if (!mounted) return null
+  // This component is only rendered in response to client interactions.
+  // Avoid setState-in-effect just to detect mount; guard on DOM availability instead.
+  if (typeof document === "undefined") return null
 
   const content = (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">

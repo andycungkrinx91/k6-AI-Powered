@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useMemo, useState } from "react"
 import Modal from "@/components/Modal"
 import { Palette } from "lucide-react"
 
@@ -51,28 +51,13 @@ export default function ThemeFontSwitcher({
   compact?: boolean
 }) {
   const [open, setOpen] = useState(false)
-  const [mounted, setMounted] = useState(false)
-  const [theme, setTheme] = useState<ThemeId>("matrix")
-  const [font, setFont] = useState<FontId>("modern")
-
-  useEffect(() => {
-    // Always prefer localStorage (source of truth) so refresh stays stable.
-    const storedTheme = getStored("theme", getAttr("data-theme", "matrix")) as ThemeId
-    const storedFont = getStored("font", getAttr("data-font", "modern")) as FontId
-
-    setTheme(storedTheme)
-    setFont(storedFont)
-    setPref("theme", storedTheme)
-    setPref("font", storedFont)
-    setMounted(true)
-  }, [])
+  // Initial theme/font are read from <html data-theme/data-font>, which is
+  // set by the beforeInteractive script in `frontend/app/layout.tsx`.
+  const [theme, setTheme] = useState<ThemeId>(() => getAttr("data-theme", "matrix") as ThemeId)
+  const [font, setFont] = useState<FontId>(() => getAttr("data-font", "modern") as FontId)
 
   const activeTheme = useMemo(() => THEMES.find((t) => t.id === theme), [theme])
   const activeFont = useMemo(() => FONTS.find((f) => f.id === font), [font])
-
-  if (!mounted) {
-    return <div className={compact ? "h-9 w-28" : "h-10 w-44"} />
-  }
 
   return (
     <>

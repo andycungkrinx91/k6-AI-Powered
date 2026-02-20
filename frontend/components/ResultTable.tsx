@@ -12,13 +12,13 @@ export default function ResultTable({ metrics }: Props) {
   const reqs = metrics.http_reqs || {}
 
   return (
-    <div className="bg-terminal-surface border border-terminal-border shadow-terminal p-6 rounded-md">
+    <div className="bg-terminal-surface border border-terminal-border shadow-terminal p-4 sm:p-6 rounded-md">
       <h3 className="text-lg font-semibold mb-4 text-terminal-phosphor">
         Performance Metrics
       </h3>
 
       <div className="overflow-x-auto">
-        <table className="w-full text-sm min-w-[360px]">
+        <table className="w-full text-sm">
           <tbody className="divide-y divide-terminal-border">
             <tr className="py-2">
               <td className="py-2 font-medium">Average (ms)</td>

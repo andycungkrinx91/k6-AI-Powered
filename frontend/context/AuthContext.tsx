@@ -54,6 +54,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const cached = readSession()
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setUser(cached?.user ?? null)
     setToken(cached?.token ?? null)
     setReady(true)

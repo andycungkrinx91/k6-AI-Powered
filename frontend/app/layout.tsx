@@ -1,7 +1,13 @@
 import "./global.css"
 import Script from "next/script"
+import type { Viewport } from "next"
 import Providers from "@/components/Providers"
 import AppShell from "@/components/AppShell"
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+}
 
 export default function RootLayout({
   children,
