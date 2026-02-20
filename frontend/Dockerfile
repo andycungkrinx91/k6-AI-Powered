@@ -31,4 +31,4 @@ COPY .env /app/.env
 
 EXPOSE 3000
 
-CMD ["node", "server.js", "--hostname", "0.0.0.0", "--port", "3000"]
+CMD ["sh", "-c", "HOSTNAME=0.0.0.0 PORT=3000 node server.js"]

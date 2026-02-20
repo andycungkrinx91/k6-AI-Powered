@@ -1,8 +1,15 @@
-version: "3.9"
-
+x-logging: &default-logging
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "3"
 services:
   mysql:
+    <<: *default-logging
     image: mysql:8.0
+    networks:
+      - k6-net
     environment:
       MYSQL_ROOT_PASSWORD: rootPassword
       MYSQL_DATABASE: k6ai
@@ -17,8 +24,11 @@ services:
     cpus: 1.0
 
   backend:
+    <<: *default-logging
     build: ./backend
     env_file: ./backend/.env
+    networks:
+      - k6-net
     volumes:
       - ./backend/results:/app/results
     depends_on:
@@ -29,11 +39,34 @@ services:
     cpus: 2.0
 
   frontend:
+    <<: *default-logging
     build: ./frontend
     env_file: ./frontend/.env
+    networks:
+      - k6-net
     depends_on:
       - backend
     ports:
-      - "80:3000"
+      - "3000:3000"
     mem_limit: "512m"
     cpus: 0.5
+
+  cf-tunnel:
+    <<: *default-logging
+    image: cloudflare/cloudflared:latest
+    container_name: cf-tunnel
+    # Remote-managed tunnel via token. Keep on the same compose network so it
+    # can reach services by name (frontend/backend).
+    env_file: ./backend/.env
+    # Force HTTP/2 transport (works when UDP/QUIC is blocked).
+    command: tunnel --no-autoupdate run
+    networks:
+      - k6-net
+    depends_on:
+      - backend
+      - frontend
+    restart: unless-stopped
+
+networks:
+  k6-net:
+    driver: bridge
