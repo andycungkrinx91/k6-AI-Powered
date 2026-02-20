@@ -17,38 +17,40 @@ export default function ResultTable({ metrics }: Props) {
         Performance Metrics
       </h3>
 
-      <table className="w-full text-sm">
-        <tbody className="divide-y">
-          <tr className="py-2">
-            <td className="py-2 font-medium">Average (ms)</td>
-            <td>{http.avg ?? "N/A"}</td>
-          </tr>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm min-w-[360px]">
+          <tbody className="divide-y">
+            <tr className="py-2">
+              <td className="py-2 font-medium">Average (ms)</td>
+              <td className="break-words">{http.avg ?? "N/A"}</td>
+            </tr>
 
-          <tr>
-            <td className="py-2 font-medium">P95 (ms)</td>
-            <td>{http["p(95)"] ?? "N/A"}</td>
-          </tr>
+            <tr>
+              <td className="py-2 font-medium">P95 (ms)</td>
+              <td className="break-words">{http["p(95)"] ?? "N/A"}</td>
+            </tr>
 
-          <tr>
-            <td className="py-2 font-medium">P99 (ms)</td>
-            <td>{http["p(99)"] ?? "N/A"}</td>
-          </tr>
+            <tr>
+              <td className="py-2 font-medium">P99 (ms)</td>
+              <td className="break-words">{http["p(99)"] ?? "N/A"}</td>
+            </tr>
 
-          <tr>
-            <td className="py-2 font-medium">Total Requests</td>
-            <td>{reqs.count ?? "N/A"}</td>
-          </tr>
+            <tr>
+              <td className="py-2 font-medium">Total Requests</td>
+              <td className="break-words">{reqs.count ?? "N/A"}</td>
+            </tr>
 
-          <tr>
-            <td className="py-2 font-medium">Error Rate</td>
-            <td>
-              {checks.error_rate !== undefined
-                ? `${(checks.error_rate * 100).toFixed(2)}%`
-                : "N/A"}
-            </td>
-          </tr>
-        </tbody>
-      </table>
+            <tr>
+              <td className="py-2 font-medium">Error Rate</td>
+              <td className="break-words">
+                {checks.error_rate !== undefined
+                  ? `${(checks.error_rate * 100).toFixed(2)}%`
+                  : "N/A"}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
   )
 }

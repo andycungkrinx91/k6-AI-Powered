@@ -46,19 +46,19 @@ export default function ResultDetail() {
     <div className="space-y-6">
 
       <Card title={`Load Test Result — ${data.project_name}`}>
-        <div className="flex justify-between items-center">
-          <div>
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 min-w-0">
+          <div className="min-w-0">
             <div className="text-orange-600 font-semibold">
               {data.project_name}
             </div>
-            <div className="text-purple-600 text-sm">
+            <div className="text-purple-600 text-sm break-all">
               {data.url}
             </div>
           </div>
 
           <button
             onClick={() => downloadResult(id)}
-            className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700"
+            className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 w-full sm:w-auto"
           >
             Download Report
           </button>
@@ -302,9 +302,9 @@ export default function ResultDetail() {
 
 function Stat({ label, value }: { label: string; value: any }) {
   return (
-    <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
+    <div className="bg-gray-50 rounded-xl p-4 border border-gray-100 min-w-0">
       <div className="text-xs uppercase text-gray-500 tracking-wide">{label}</div>
-      <div className="text-lg font-semibold text-gray-800 mt-1">{value ?? "N/A"}</div>
+      <div className="text-lg font-semibold text-gray-800 mt-1 break-words">{value ?? "N/A"}</div>
     </div>
   )
 }
@@ -383,9 +383,9 @@ function Badge({ label, value, suffix }: { label: string; value: any; suffix?: s
 
 function SmallStat({ title, value }: { title: string; value: any }) {
   return (
-    <div className="bg-white border border-gray-100 rounded-lg p-3">
+    <div className="bg-white border border-gray-100 rounded-lg p-3 min-w-0">
       <div className="text-xs uppercase text-gray-500">{title}</div>
-      <div className="text-base font-semibold text-gray-800 mt-1">{value ?? "N/A"}</div>
+      <div className="text-base font-semibold text-gray-800 mt-1 break-words">{value ?? "N/A"}</div>
     </div>
   )
 }

@@ -8,7 +8,7 @@ export default function Card({
   return (
     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
       {title && (
-        <h2 className="text-lg font-semibold mb-6">
+        <h2 className="text-lg font-semibold mb-6 break-words">
           {title}
         </h2>
       )}
