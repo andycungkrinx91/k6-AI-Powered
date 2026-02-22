@@ -24,8 +24,20 @@ Runtime requirements:
 ## 🎛 Theme & Font Switcher
 
 - Default theme: Linux terminal (matrix)
-- Themes: `matrix`, `amber`, `cyberpunk`, `midnight`
-- Fonts: `modern`, `classic`, `geometric`, `retro`
+- Themes:
+  - `matrix` (default) – linux green
+  - `amber` – mainframe
+  - `cyberpunk` – neon
+  - `midnight` – dracula
+  - `modern-geist` – clean contrast
+  - `modern-linear` – sleek indigo
+  - `terminal-terminator` – utilitarian red
+  - `terminal-arch` – arch blue
+- Fonts:
+  - `modern` – dev mono
+  - `classic` – dense
+  - `geometric` – wide
+  - `retro` – crt
 - Persisted in localStorage:
   - `k6-theme`
   - `k6-font`

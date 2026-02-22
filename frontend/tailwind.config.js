@@ -21,8 +21,7 @@ const config = {
       },
       fontFamily: {
         mono: [
-          '"JetBrains Mono"',
-          '"Fira Code"',
+          "var(--k6-font-mono)",
           "ui-monospace",
           "SFMono-Regular",
           "Menlo",

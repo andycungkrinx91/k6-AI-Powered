@@ -14,6 +14,22 @@ K6 AI Powered is a full‑stack performance testing platform that combines **k6 
 
 <table align="center">
   <tr>
+    <td align="center"><b>Login Page</b></td>
+    <td align="center"><b>Users</b></td>
+  </tr>
+  <tr>
+    <td><a href="https://raw.githubusercontent.com/andycungkrinx91/k6-AI-Powered/master/images/login.png" target="_blank"><img src="https://raw.githubusercontent.com/andycungkrinx91/k6-AI-Powered/master/images/login.png" width="400px"/></a></td>
+    <td><a href="https://raw.githubusercontent.com/andycungkrinx91/k6-AI-Powered/master/images/users.png" target="_blank"><img src="https://raw.githubusercontent.com/andycungkrinx91/k6-AI-Powered/master/images/users.png" width="400px"/></a></td>
+  </tr>
+  <tr>
+    <td align="center"><b>Profile</b></td>
+    <td align="center"><b>Themes Settings</b></td>
+  </tr>
+  <tr>
+    <td><a href="https://raw.githubusercontent.com/andycungkrinx91/k6-AI-Powered/master/images/profile.png" target="_blank"><img src="https://raw.githubusercontent.com/andycungkrinx91/k6-AI-Powered/master/images/profile.png" width="400px"/></a></td>
+    <td><a href="https://raw.githubusercontent.com/andycungkrinx91/k6-AI-Powered/master/images/themes.png" target="_blank"><img src="https://raw.githubusercontent.com/andycungkrinx91/k6-AI-Powered/master/images/themes.png" width="400px"/></a></td>
+  </tr>
+  <tr>
     <td align="center"><b>Dashboard</b></td>
     <td align="center"><b>Builder Mode</b></td>
   </tr>
@@ -144,8 +160,20 @@ Runtime requirements (local dev):
 
 ## 8️⃣ Terminal UI (Themes + Fonts)
 
-- 4 themes: `matrix` (default), `amber`, `cyberpunk`, `midnight`
-- Fonts: `modern`, `classic`, `geometric`, `retro`
+- Themes:
+  - `matrix` (default) – linux green
+  - `amber` – mainframe
+  - `cyberpunk` – neon
+  - `midnight` – dracula
+  - `modern-geist` – clean contrast
+  - `modern-linear` – sleek indigo
+  - `terminal-terminator` – utilitarian red
+  - `terminal-arch` – arch blue
+- Fonts:
+  - `modern` – dev mono
+  - `classic` – dense
+  - `geometric` – wide
+  - `retro` – crt
 - Stored in localStorage keys: `k6-theme`, `k6-font`
 - Switcher entry point: Sidebar settings (top)
 

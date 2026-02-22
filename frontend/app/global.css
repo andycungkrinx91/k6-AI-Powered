@@ -1,3 +1,4 @@
+@import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Fira+Code:wght@400;600;700&family=Space+Mono:wght@400;700&family=Roboto+Mono:wght@400;700&family=VT323&family=Courier+Prime:wght@400;700&display=swap");
 @import "tailwindcss";
 
 /* Tailwind v4 CSS-first theme tokens */
@@ -12,12 +13,20 @@
   --color-terminal-amber: #ffb000;
   --color-terminal-magenta: #ff00ff;
   --color-terminal-white: #eafbe6;
+
+  /* Let `font-mono` follow the active `data-font` selection */
+  --font-mono: var(--k6-font-mono);
 }
 
 /* Default theme + fonts (matrix/linux) */
 :root {
   --k6-font-mono: "JetBrains Mono", "Fira Code", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
     "Liberation Mono", "Courier New", monospace;
+
+  /* CRT overlay defaults (Matrix) */
+  --crt-glow-1: rgba(57, 255, 20, 0.10);
+  --crt-glow-2: rgba(0, 255, 255, 0.06);
+  --crt-opacity: 0.22;
 }
 
 html[data-theme="matrix"] {
@@ -72,6 +81,76 @@ html[data-theme="midnight"] {
   --color-terminal-white: #f8f8f2;
 }
 
+/* Modern website themes */
+html[data-theme="modern-geist"] {
+  --color-terminal-bg: #000000;
+  --color-terminal-surface: #0a0a0a;
+  --color-terminal-surface2: #111111;
+  --color-terminal-border: #333333;
+  --color-terminal-phosphor: #ffffff;
+  --color-terminal-dim: #888888;
+  --color-terminal-cyan: #3291ff;
+  --color-terminal-amber: #f5a623;
+  --color-terminal-magenta: #eb367f;
+  --color-terminal-white: #ededed;
+
+  --crt-glow-1: rgba(255, 255, 255, 0.03);
+  --crt-glow-2: rgba(50, 145, 255, 0.02);
+  --crt-opacity: 0.05;
+}
+
+html[data-theme="modern-linear"] {
+  --color-terminal-bg: #0e0f11;
+  --color-terminal-surface: #18191b;
+  --color-terminal-surface2: #222326;
+  --color-terminal-border: #2d2d30;
+  --color-terminal-phosphor: #5e6ad2;
+  --color-terminal-dim: #8a8f98;
+  --color-terminal-cyan: #26b5ce;
+  --color-terminal-amber: #f2c94c;
+  --color-terminal-magenta: #eb5757;
+  --color-terminal-white: #f4f5f8;
+
+  --crt-glow-1: rgba(94, 106, 210, 0.06);
+  --crt-glow-2: rgba(38, 181, 206, 0.04);
+  --crt-opacity: 0.08;
+}
+
+/* Linux terminal themes */
+html[data-theme="terminal-terminator"] {
+  --color-terminal-bg: #1e1e1e;
+  --color-terminal-surface: #2d2d2d;
+  --color-terminal-surface2: #3c3c3c;
+  --color-terminal-border: #cc0000;
+  --color-terminal-phosphor: #cc0000;
+  --color-terminal-dim: #aaaaaa;
+  --color-terminal-cyan: #06989a;
+  --color-terminal-amber: #c4a000;
+  --color-terminal-magenta: #75507b;
+  --color-terminal-white: #eeeeec;
+
+  --crt-glow-1: rgba(204, 0, 0, 0.08);
+  --crt-glow-2: rgba(170, 170, 170, 0.05);
+  --crt-opacity: 0.15;
+}
+
+html[data-theme="terminal-arch"] {
+  --color-terminal-bg: #0f1419;
+  --color-terminal-surface: #171e24;
+  --color-terminal-surface2: #1f2933;
+  --color-terminal-border: #1793d1;
+  --color-terminal-phosphor: #1793d1;
+  --color-terminal-dim: #4d5b66;
+  --color-terminal-cyan: #00bfff;
+  --color-terminal-amber: #f5a70a;
+  --color-terminal-magenta: #c678dd;
+  --color-terminal-white: #e6eef4;
+
+  --crt-glow-1: rgba(23, 147, 209, 0.12);
+  --crt-glow-2: rgba(0, 191, 255, 0.08);
+  --crt-opacity: 0.18;
+}
+
 html[data-font="modern"] {
   --k6-font-mono: "JetBrains Mono", "Fira Code", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
     "Liberation Mono", "Courier New", monospace;
@@ -108,8 +187,8 @@ html[data-font="retro"] {
     pointer-events: none;
     z-index: 60;
     background:
-      radial-gradient(1200px 700px at 50% 15%, rgba(57, 255, 20, 0.10), transparent 65%),
-      radial-gradient(900px 600px at 30% 90%, rgba(0, 255, 255, 0.06), transparent 60%),
+      radial-gradient(1200px 700px at 50% 15%, var(--crt-glow-1), transparent 65%),
+      radial-gradient(900px 600px at 30% 90%, var(--crt-glow-2), transparent 60%),
       linear-gradient(to bottom, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.00) 20%, rgba(0, 0, 0, 0.22) 100%),
       repeating-linear-gradient(
         to bottom,
@@ -119,7 +198,7 @@ html[data-font="retro"] {
         rgba(0, 0, 0, 0) 6px
       );
     mix-blend-mode: overlay;
-    opacity: 0.22;
+    opacity: var(--crt-opacity);
   }
 }
 
@@ -166,7 +245,7 @@ button {
 
 /* Terminal selection */
 ::selection {
-  background: rgba(57, 255, 20, 0.35);
+  background: color-mix(in oklab, var(--color-terminal-phosphor) 35%, transparent);
   color: #000;
 }
 

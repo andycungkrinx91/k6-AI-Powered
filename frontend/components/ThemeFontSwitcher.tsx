@@ -4,7 +4,15 @@ import { useMemo, useState } from "react"
 import Modal from "@/components/Modal"
 import { Palette } from "lucide-react"
 
-type ThemeId = "matrix" | "amber" | "cyberpunk" | "midnight"
+type ThemeId =
+  | "matrix"
+  | "amber"
+  | "cyberpunk"
+  | "midnight"
+  | "modern-geist"
+  | "modern-linear"
+  | "terminal-terminator"
+  | "terminal-arch"
 type FontId = "modern" | "classic" | "geometric" | "retro"
 
 const THEMES: { id: ThemeId; label: string; hint: string }[] = [
@@ -12,6 +20,10 @@ const THEMES: { id: ThemeId; label: string; hint: string }[] = [
   { id: "amber", label: "amber", hint: "mainframe" },
   { id: "cyberpunk", label: "cyberpunk", hint: "neon" },
   { id: "midnight", label: "midnight", hint: "dracula" },
+  { id: "modern-geist", label: "modern/geist", hint: "clean contrast" },
+  { id: "modern-linear", label: "modern/linear", hint: "sleek indigo" },
+  { id: "terminal-terminator", label: "terminal/terminator", hint: "utilitarian red" },
+  { id: "terminal-arch", label: "terminal/arch", hint: "arch blue" },
 ]
 
 const FONTS: { id: FontId; label: string; hint: string }[] = [
