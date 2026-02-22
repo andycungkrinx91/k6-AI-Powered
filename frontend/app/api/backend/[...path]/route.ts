@@ -17,10 +17,15 @@ async function proxy(req: NextRequest, ctx: { params: Promise<{ path: string[] }
 
   const headers = new Headers()
   headers.set("x-api-key", BACKEND_KEY)
+  // Avoid upstream compression to prevent content-encoding mismatches when proxying
+  // through Node fetch and edge proxies (e.g. Cloudflare).
+  headers.set("accept-encoding", "identity")
   const authorization = req.headers.get("authorization")
   if (authorization && authorization !== "Bearer undefined" && authorization !== "Bearer null") {
     // Standardize casing for downstream services.
     headers.set("Authorization", authorization)
+    // Fallback header: helps when intermediaries modify Authorization.
+    headers.set("X-App-Authorization", authorization)
   }
   const contentType = req.headers.get("content-type")
   if (contentType) headers.set("content-type", contentType)
@@ -41,12 +46,28 @@ async function proxy(req: NextRequest, ctx: { params: Promise<{ path: string[] }
     ;(init as any).duplex = "half"
   }
 
-  const res = await fetch(backendUrl, init)
+  let res: Response
+  try {
+    res = await fetch(backendUrl, init)
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    return new Response(`Backend fetch failed: ${message}`, {
+      status: 502,
+      headers: {
+        "content-type": "text/plain; charset=utf-8",
+      },
+    })
+  }
 
   // Pass-through status + headers, but avoid leaking hop-by-hop headers.
   const outHeaders = new Headers(res.headers)
   outHeaders.delete("connection")
   outHeaders.delete("transfer-encoding")
+  // Node's fetch (undici) transparently decompresses gzip/br/deflate responses.
+  // If we forward Content-Encoding unchanged, the browser will try to decode an
+  // already-decoded body and fail with ERR_CONTENT_DECODING_FAILED.
+  outHeaders.delete("content-encoding")
+  outHeaders.delete("content-length")
 
   return new Response(res.body, {
     status: res.status,

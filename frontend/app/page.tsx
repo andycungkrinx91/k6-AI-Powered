@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
-import { getResults } from "@/lib/api"
+import { getResultsList } from "@/lib/api"
 import { motion } from "framer-motion"
 import {
   LineChart,
@@ -28,7 +28,14 @@ interface ResultItem {
   id: string
   project_name: string
   created_at: string
-  result_json?: any
+  score?: number | null
+  grade?: string | null
+  error_rate?: number | null
+  security_grade?: string | number | null
+  ssl_grade?: string | null
+  ssl_versions?: string[] | null
+  wpt_grade?: string | null
+  lighthouse_score?: number | null
 }
 
 const COLORS = ["#10B981", "#6366F1", "#F59E0B", "#F97316", "#EF4444", "#0EA5E9", "#A855F7"]
@@ -53,8 +60,8 @@ export default function DashboardPage() {
 
     async function load() {
       try {
-        const data = await getResults(50, 0, token)
-        setResults(data)
+        const res = await getResultsList({ limit: 25, offset: 0 }, token)
+        setResults(res.items as ResultItem[])
       } catch (error) {
         console.error("Failed to load results", error)
       }
@@ -115,50 +122,45 @@ export default function DashboardPage() {
     let perfScoreSum = 0
 
     results.forEach((r) => {
-      const sc = r.result_json?.scorecard
-      if (typeof sc?.score === "number") perfScoreSum += sc.score
-      const grade = sc?.grade
+      if (typeof r.score === "number") perfScoreSum += r.score
+      const grade = r.grade
       if (grade && gradeCount[grade as keyof typeof gradeCount] !== undefined) {
         gradeCount[grade as keyof typeof gradeCount]++
       }
 
-      const sh = r.result_json?.security_headers
-      if (sh) {
-        const g = sh.grade || sh.score
-        if (g && secGradeCount[g] !== undefined) secGradeCount[g]++
-        if (sh.headers && sh.total) {
+      const secG = r.security_grade
+      if (secG !== undefined && secG !== null && secG !== "") {
+        const g = String(secG)
+        if (secGradeCount[g] !== undefined) secGradeCount[g]++
+        // Approximate header coverage for KPI: treat A/A+ as pass.
+        if (g.startsWith("A")) {
           secValidCount++
-          const present = sh.present ?? Object.values(sh.headers).filter((v: any) => v === "present").length
-          const total = sh.total ?? Object.keys(sh.headers).length
-          if (total) secScoreSum += present / total
+          secScoreSum += 1
         }
       }
 
-      const ssl = r.result_json?.ssl
-      if (ssl) {
-        if (ssl.supported_versions?.includes("TLS 1.3")) tls13Supported++
-        if (ssl.supported_versions?.includes("TLS 1.2")) tls12Supported++
-        if (ssl.supported_versions?.includes("TLS 1.0") || ssl.weak_versions?.includes("TLS 1.0")) tls10++
-        if (ssl.supported_versions?.includes("TLS 1.1") || ssl.weak_versions?.includes("TLS 1.1")) tls11++
-        if (ssl.supported_versions?.includes("TLS 1.2")) tls12++
-        if (ssl.supported_versions?.includes("TLS 1.3")) tls13++
-        const g = ssl.rating || ssl.ssllabs_grade
-        if (g && sslGradeCount[g] !== undefined) sslGradeCount[g]++
-      }
+      if (r.ssl_versions?.includes("TLS 1.3")) tls13Supported++
+      if (r.ssl_versions?.includes("TLS 1.2")) tls12Supported++
+      if (r.ssl_versions?.includes("TLS 1.0")) tls10++
+      if (r.ssl_versions?.includes("TLS 1.1")) tls11++
+      if (r.ssl_versions?.includes("TLS 1.2")) tls12++
+      if (r.ssl_versions?.includes("TLS 1.3")) tls13++
+      if (r.ssl_grade && sslGradeCount[r.ssl_grade] !== undefined) sslGradeCount[r.ssl_grade]++
 
-      const wpt = r.result_json?.webpagetest
-      if (wpt && typeof wpt.score === "number") {
-        wptScoreSum += wpt.score
+      // We don't have WPT score in list payload; bucket by grade only.
+      if (r.wpt_grade) {
+        const g = r.wpt_grade
+        const s = g === "A+" ? 97 : g === "A" ? 93 : g === "B" ? 87 : g === "C" ? 78 : g === "D" ? 70 : 50
+        wptScoreSum += s
         wptCount += 1
-        if (wpt.score >= 90) wptScoreBuckets.push({ name: "90-100", value: 1 })
-        else if (wpt.score >= 80) wptScoreBuckets.push({ name: "80-89", value: 1 })
-        else if (wpt.score >= 70) wptScoreBuckets.push({ name: "70-79", value: 1 })
-        else if (wpt.score >= 60) wptScoreBuckets.push({ name: "60-69", value: 1 })
+        if (s >= 90) wptScoreBuckets.push({ name: "90-100", value: 1 })
+        else if (s >= 80) wptScoreBuckets.push({ name: "80-89", value: 1 })
+        else if (s >= 70) wptScoreBuckets.push({ name: "70-79", value: 1 })
+        else if (s >= 60) wptScoreBuckets.push({ name: "60-69", value: 1 })
         else wptScoreBuckets.push({ name: "<60", value: 1 })
       }
 
-      const lh = r.result_json?.lighthouse
-      const lhScore = typeof lh?.score === "number" ? lh?.score : lh?.categories?.performance
+      const lhScore = r.lighthouse_score
       if (lhScore !== undefined && lhScore !== null) {
         lhScoreSum += Number(lhScore)
         lhCount += 1
@@ -247,9 +249,8 @@ export default function DashboardPage() {
     .map((r) => ({
       // Use a stable UTC date string to avoid SSR/client locale hydration mismatches.
       date: new Date(r.created_at).toISOString().slice(0, 10),
-      score: r.result_json?.scorecard?.score ?? 0,
-      errorRate:
-        r.result_json?.metrics?.checks?.error_rate ?? 0,
+      score: r.score ?? 0,
+      errorRate: r.error_rate ?? 0,
     }))
 
   useEffect(() => {

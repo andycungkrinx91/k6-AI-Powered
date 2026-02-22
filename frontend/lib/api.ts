@@ -80,6 +80,25 @@ export async function getResults(limit = 100, offset = 0, token?: string) {
   return request(`/api/result/list?limit=${limit}&offset=${offset}`, {}, token)
 }
 
+export type ResultListResponse<T = any> = {
+  items: T[]
+  total: number
+  limit: number
+  offset: number
+  q?: string
+}
+
+export async function getResultsList(
+  opts: { limit?: number; offset?: number; q?: string } = {},
+  token?: string
+): Promise<ResultListResponse> {
+  const limit = opts.limit ?? 50
+  const offset = opts.offset ?? 0
+  const q = opts.q ? encodeURIComponent(opts.q) : ""
+  const qs = `limit=${limit}&offset=${offset}${q ? `&q=${q}` : ""}`
+  return request(`/api/result/list?${qs}`, {}, token)
+}
+
 export async function getResult(id: string, token?: string) {
   return request(`/api/result/${id}`, {}, token)
 }

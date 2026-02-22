@@ -4,7 +4,7 @@ export const dynamic = "force-dynamic"
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { getResults } from "@/lib/api"
+import { getResultsList } from "@/lib/api"
 import Link from "next/link"
 import { motion, AnimatePresence } from "framer-motion"
 import { useAuth } from "@/context/AuthContext"
@@ -15,7 +15,13 @@ interface ResultItem {
   url: string
   status: string
   created_at: string
-  result_json?: any
+  score?: number | null
+  grade?: string | null
+  error_rate?: number | null
+  security_grade?: string | number | null
+  ssl_grade?: string | null
+  wpt_grade?: string | null
+  lighthouse_score?: number | null
   run_by?: {
     id?: string
     username?: string
@@ -30,6 +36,7 @@ export default function ResultPage() {
   const [results, setResults] = useState<ResultItem[]>([])
   const [search, setSearch] = useState("")
   const [page, setPage] = useState(1)
+  const [total, setTotal] = useState(0)
 
   useEffect(() => {
     if (!token) {
@@ -38,15 +45,23 @@ export default function ResultPage() {
 
     async function load() {
       try {
-        const data = await getResults(50, 0, token)
-        setResults(data)
+        const res = await getResultsList(
+          {
+            limit: ITEMS_PER_PAGE,
+            offset: (page - 1) * ITEMS_PER_PAGE,
+            q: search || undefined,
+          },
+          token
+        )
+        setResults(res.items as ResultItem[])
+        setTotal(res.total || 0)
       } catch (error) {
         console.error("Failed to load results", error)
       }
     }
 
     load()
-  }, [token])
+  }, [token, page, search])
 
   useEffect(() => {
     if (ready && !user) {
@@ -62,18 +77,7 @@ export default function ResultPage() {
       )
     }
 
-  const filtered = results.filter(
-    (r) =>
-      r.id.toLowerCase().includes(search.toLowerCase()) ||
-      r.project_name.toLowerCase().includes(search.toLowerCase())
-  )
-
-  const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE)
-
-  const paginatedResults = filtered.slice(
-    (page - 1) * ITEMS_PER_PAGE,
-    page * ITEMS_PER_PAGE
-  )
+  const totalPages = Math.max(1, Math.ceil(total / ITEMS_PER_PAGE))
 
   const nextPage = () => {
     if (page < totalPages) setPage((p) => p + 1)
@@ -163,12 +167,12 @@ export default function ResultPage() {
 
           <tbody className="divide-y">
             <AnimatePresence>
-            {paginatedResults.map((r) => {
-                const grade = r.result_json?.scorecard?.grade ?? null
-                const secGrade = r.result_json?.security_headers?.grade || r.result_json?.security_headers?.score || "N/A"
-                const sslGrade = r.result_json?.ssl?.rating || r.result_json?.ssl?.ssllabs_grade || "N/A"
-                const wptGrade = r.result_json?.webpagetest?.grade || "N/A"
-                const lhScore = r.result_json?.lighthouse?.score ?? r.result_json?.lighthouse?.categories?.performance ?? "N/A"
+            {results.map((r) => {
+                const grade = r.grade ?? null
+                const secGrade = r.security_grade ?? "N/A"
+                const sslGrade = r.ssl_grade ?? "N/A"
+                const wptGrade = r.wpt_grade ?? "N/A"
+                const lhScore = r.lighthouse_score ?? "N/A"
                 const runBy = r.run_by || { username: "system" }
 
               return (
@@ -225,12 +229,12 @@ export default function ResultPage() {
           transition={{ duration: 0.3 }}
           className="space-y-4"
         >
-          {paginatedResults.map((r) => {
-            const grade = r.result_json?.scorecard?.grade ?? null
-            const secGrade = r.result_json?.security_headers?.grade || r.result_json?.security_headers?.score || "N/A"
-            const sslGrade = r.result_json?.ssl?.rating || r.result_json?.ssl?.ssllabs_grade || "N/A"
-            const wptGrade = r.result_json?.webpagetest?.grade || "N/A"
-            const lhScore = r.result_json?.lighthouse?.score ?? r.result_json?.lighthouse?.categories?.performance ?? "N/A"
+          {results.map((r) => {
+            const grade = r.grade ?? null
+            const secGrade = r.security_grade ?? "N/A"
+            const sslGrade = r.ssl_grade ?? "N/A"
+            const wptGrade = r.wpt_grade ?? "N/A"
+            const lhScore = r.lighthouse_score ?? "N/A"
             const runBy = r.run_by || { username: "system" }
 
             return (

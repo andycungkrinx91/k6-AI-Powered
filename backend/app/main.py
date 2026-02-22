@@ -19,7 +19,7 @@ from passlib.context import CryptContext
 from fastapi import Depends, FastAPI, Header, HTTPException, UploadFile, File, Form, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, FileResponse
-from sqlalchemy import delete, or_, select
+from sqlalchemy import delete, func, or_, select
 from sqlalchemy.exc import IntegrityError, OperationalError
 
 from .database import SessionLocal, engine, Base
@@ -132,10 +132,25 @@ def create_access_token(user: User, expires_delta: timedelta | None = None) -> s
     return jwt.encode(payload, AUTH_SECRET, algorithm=JWT_ALGORITHM)
 
 
-async def get_current_user(authorization: str | None = Header(None)) -> User:
-    if not authorization or not authorization.startswith("Bearer "):
+async def get_current_user(
+    authorization: str | None = Header(None),
+    x_app_authorization: str | None = Header(None, alias="X-App-Authorization"),
+) -> User:
+    # Some proxies (e.g. Cloudflare Access) may inject/modify the Authorization
+    # header, or join multiple values into a comma-separated list. Support a
+    # dedicated fallback header and robust parsing.
+    auth_header = authorization or x_app_authorization
+    if not auth_header:
         raise HTTPException(status_code=401, detail="Missing Bearer token")
-    token = authorization.split(" ", 1)[1]
+
+    token = None
+    for part in [p.strip() for p in auth_header.split(",") if p.strip()]:
+        if part.startswith("Bearer "):
+            token = part.split(" ", 1)[1]
+            break
+
+    if not token:
+        raise HTTPException(status_code=401, detail="Missing Bearer token")
     try:
         payload = jwt.decode(token, AUTH_SECRET, algorithms=[JWT_ALGORITHM])
     except PyJWTError:
@@ -1159,6 +1174,8 @@ async def run_js(
 async def list_results(
     limit: int = 50,
     offset: int = 0,
+    q: str | None = None,
+    include_json: bool = False,
     x_api_key: str | None = Header(None),
     current_user: User = Depends(get_current_user),
 ):
@@ -1168,36 +1185,74 @@ async def list_results(
     offset = max(0, offset)
 
     async with SessionLocal() as session:
-        try:
-            stmt = select(LoadTest)
-            if current_user.role != "admin":
-                stmt = stmt.where(LoadTest.user_id == current_user.id)
+        base = select(LoadTest)
+        if current_user.role != "admin":
+            base = base.where(LoadTest.user_id == current_user.id)
+        if q:
+            term = q.strip()
+            if term:
+                base = base.where(or_(LoadTest.id.contains(term), LoadTest.project_name.contains(term)))
 
-            stmt = stmt.order_by(LoadTest.created_at.desc()).limit(limit).offset(offset)
+        # Total count (for pagination)
+        total_stmt = select(func.count()).select_from(base.subquery())
+        total = int((await session.execute(total_stmt)).scalar() or 0)
+
+        try:
+            stmt = base.order_by(LoadTest.created_at.desc()).limit(limit).offset(offset)
             result = await session.execute(stmt)
             slice_tests = result.scalars().all()
         except OperationalError:
             fallback_limit = min(limit, 50)
-            stmt = select(LoadTest)
-            if current_user.role != "admin":
-                stmt = stmt.where(LoadTest.user_id == current_user.id)
-
-            stmt = stmt.limit(fallback_limit).offset(offset)
+            stmt = base.order_by(LoadTest.created_at.desc()).limit(fallback_limit).offset(offset)
             result = await session.execute(stmt)
             slice_tests = result.scalars().all()
-        return [
-            {
+
+        def summarize(t: LoadTest):
+            payload = t.result_json or {}
+            scorecard = payload.get("scorecard") or {}
+            metrics = payload.get("metrics") or {}
+            checks = metrics.get("checks") or {}
+
+            security = payload.get("security_headers") or {}
+            ssl_payload = payload.get("ssl") or {}
+            wpt = payload.get("webpagetest") or {}
+            lh = payload.get("lighthouse") or {}
+
+            item = {
                 "id": t.id,
                 "project_name": t.project_name,
                 "url": t.url,
                 "status": t.status,
                 "created_at": t.created_at,
-                "result_json": t.result_json,
-                "run_by": (t.result_json or {}).get("run_by")
-                or {"id": t.user_id, "username": t.username},
+                "run_by": payload.get("run_by") or {"id": t.user_id, "username": t.username},
+                "score": scorecard.get("score"),
+                "grade": scorecard.get("grade"),
+                "error_rate": (checks.get("error_rate") if isinstance(checks, dict) else None),
+                "security_grade": security.get("grade") or security.get("score"),
+                "ssl_grade": ssl_payload.get("rating") or ssl_payload.get("ssllabs_grade"),
+                "ssl_versions": ssl_payload.get("supported_versions") if isinstance(ssl_payload, dict) else None,
+                "wpt_grade": wpt.get("grade"),
+                "lighthouse_score": lh.get("score")
+                if isinstance(lh, dict)
+                else None,
             }
-            for t in slice_tests
-        ]
+
+            # Support older lighthouse payload shape (categories.performance)
+            if item["lighthouse_score"] is None and isinstance(lh, dict):
+                cats = lh.get("categories") or {}
+                item["lighthouse_score"] = cats.get("performance")
+
+            if include_json:
+                item["result_json"] = payload
+            return item
+
+        return {
+            "items": [summarize(t) for t in slice_tests],
+            "total": total,
+            "limit": limit,
+            "offset": offset,
+            "q": q or "",
+        }
 
 
 @app.get("/api/result/{run_id}")

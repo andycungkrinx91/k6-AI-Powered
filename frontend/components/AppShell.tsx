@@ -11,7 +11,16 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const isAuthScreen = pathname === "/login"
 
-  if (isAuthScreen) {
+  // Keep unknown routes (404) clean: render as full-screen without chrome.
+  const isKnownAppRoute =
+    pathname === "/" ||
+    pathname === "/load-test" ||
+    pathname === "/users" ||
+    pathname === "/profile" ||
+    pathname.startsWith("/result")
+  const isFullScreen = isAuthScreen || !isKnownAppRoute
+
+  if (isFullScreen) {
     return <main className="min-h-screen">{children}</main>
   }
 
