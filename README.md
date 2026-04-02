@@ -62,7 +62,7 @@ K6 AI Powered is a full‑stack performance testing platform that combines **k6 
 **K6 AI Powered** is a full‑stack performance testing platform combining:
 
 - ⚡ k6 load testing
-- 🧠 AI analysis (Gemini)
+- 🧠 AI analysis (Gemini, OpenAI, Local LLM)
 - 📊 Advanced dashboards
 - 📄 Automated PDF reporting
 - 🔐 Secure execution pipeline
@@ -75,7 +75,7 @@ It provides both:
 ---
 # 🏗 Architecture
 
-Frontend (Next.js)  ⇄  Backend (FastAPI)  ⇄  k6 Engine  ⇄  Gemini AI  ⇄  MySQL
+Frontend (Next.js)  ⇄  Backend (FastAPI)  ⇄  k6 Engine  ⇄  AI (Gemini/OpenAI/Local LLM)  ⇄  MySQL
 
 ---
 
@@ -87,7 +87,7 @@ Frontend (Next.js)  ⇄  Backend (FastAPI)  ⇄  k6 Engine  ⇄  Gemini AI  ⇄ 
 - SQLAlchemy (Async)
 - MySQL 8
 - k6 CLI
-- Google Gemini API
+- AI Analysis (Google Gemini, OpenAI, Local LLM/vLLM/Ollama)
 - ReportLab (PDF generator)
 - Docker
 - asyncio / subprocess
@@ -158,7 +158,17 @@ Runtime requirements (local dev):
 - SLA + Security + SSL + WPT + Lighthouse badges in Result History
 - Animated KPI counters
 
-## 8️⃣ Terminal UI (Themes + Fonts)
+## 6️⃣ User LLM Settings (Per-User AI Configuration)
+- Users can configure their own AI provider for analysis
+- Supported providers:
+  - **Google Gemini**: Use your own Gemini API key
+  - **OpenAI**: Use your own OpenAI API key (api.openai.com)
+  - **Local/OpenAI-Compatible**: Use local LLM servers (vLLM, Ollama, etc.)
+- Per-user settings override global configuration
+- Settings accessible from LLM Settings menu
+- Common options: temperature, max tokens, model selection
+
+## 7️⃣ Terminal UI (Themes + Fonts)
 
 - Themes:
   - `matrix` (default) – linux green
@@ -185,15 +195,15 @@ Changelog:
 - Login with username/email + password
 - Roles: `admin` (create users) and `user` (run load tests)
 - Greeting banner after login
-- Profile page for password updates
+- Profile page for password updates and LLM settings
 
-## 6️⃣ Result Management
+## 8️⃣ Result Management
 - Sortable, paginated table with filtering
 - Mobile responsive cards with badge summaries
 - PDF download (load/security)
 - CLI reset endpoint
 
-## 7️⃣ Identity & Access Control
+## 9️⃣ Identity & Access Control
 - Admin + user roles enforced via JWTs (`/api/auth/login` returns an access token after supplying username/email + password)
 - Administrators can manage accounts through the new `Users` menu (list + create user with username/email/password/role)
 - Every user has a profile page to rotate their password

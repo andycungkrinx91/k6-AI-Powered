@@ -11,24 +11,27 @@ import ssl
 import socket
 import time
 from datetime import datetime, timezone, timedelta
+from typing import Optional
 
 import httpx
 import jwt
 from jwt import PyJWTError
 from passlib.context import CryptContext
+from google import genai
 from fastapi import Depends, FastAPI, Header, HTTPException, UploadFile, File, Form, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, FileResponse
+from openai import AsyncOpenAI
 from sqlalchemy import delete, func, or_, select
 from sqlalchemy.exc import IntegrityError, OperationalError
 
 from .database import SessionLocal, engine, Base
-from .gemini import analyze
+from .llm import GEMINI_KEYS_LIST, OPENAI_API_KEY, OPENAI_BASE_URL, analyze_with_settings
 from .k6_parser import parse_k6_ndjson
 from .k6_runner import run_k6_stream
-from .models import LoadTest, User
+from .models import LoadTest, User, UserLLMSettings
 from .pdf_generator import generate
-from .schemas import RunRequest, LoginPayload, UserCreate, PasswordUpdate
+from .schemas import RunRequest, LoginPayload, UserCreate, PasswordUpdate, UserLLMSettingsUpdate, UserLLMSettingsOut
 from .scoring import calculate_score
 from .url_safety import UnsafeUrlError, validate_target_url
 
@@ -55,18 +58,68 @@ INITIAL_ADMIN_PASSWORD = os.getenv("INITIAL_ADMIN_PASSWORD")
 pwd_context = CryptContext(schemes=["argon2", "bcrypt"], deprecated="auto")
 
 
-async def analyze_with_retry(payload: str, retries: int = 3, delay: float = 2.0):
+async def get_user_llm_settings(user_id: str) -> Optional[dict]:
+    """Get user LLM settings as a dict, or None if not configured"""
+    from sqlalchemy import select
+    
+    async with SessionLocal() as session:
+        # Query by user_id, not primary key id
+        result = await session.execute(
+            select(UserLLMSettings).where(UserLLMSettings.user_id == user_id)
+        )
+        settings = result.scalar_one_or_none()
+        
+        if not settings:
+            print(f"[DEBUG] No LLM settings found for user_id: {user_id}")
+            return None
+        print(f"[DEBUG] Found LLM settings for user_id {user_id}: provider={settings.provider}, openai_base_url={settings.openai_base_url}")
+        return {
+            "provider": settings.provider,
+            "gemini_api_key": settings.gemini_api_key,
+            "gemini_model": settings.gemini_model,
+            "openai_api_key": settings.openai_api_key,
+            "openai_model": settings.openai_model,
+            "openai_base_url": settings.openai_base_url,
+            "temperature": settings.temperature,
+            "max_tokens": settings.max_tokens,
+        }
+
+
+async def analyze_with_retry(
+    payload: str,
+    user_id: Optional[str] = None,
+    retries: int = 3,
+    delay: float = 2.0,
+):
+    """Analyze with optional user-specific settings"""
+    # Get user settings if user_id provided
+    user_settings = None
+    if user_id:
+        user_settings = await get_user_llm_settings(user_id)
+        print(f"[DEBUG] analyze_with_retry: user_id={user_id}, user_settings={user_settings}")
+    
+    print(f"[DEBUG] analyze_with_retry: Calling analyze_with_settings with user_settings={user_settings is not None}")
+    
     last_error = None
     for attempt in range(1, retries + 1):
+        print(f"[DEBUG] Attempt {attempt}...")
         try:
-            return await analyze(payload)
+            result = await analyze_with_settings(payload, user_settings)
+            print(f"[DEBUG] Success on attempt {attempt}")
+            return result
         except Exception as exc:  # noqa: BLE001
             last_error = exc
             msg = str(exc).lower()
-            if ("503" in msg or "unavailable" in msg or "overloaded" in msg) and attempt < retries:
+            print(f"[DEBUG] Attempt {attempt} failed: {exc}")
+            # Retry on network errors
+            if ("503" in msg or "unavailable" in msg or "overloaded" in msg or "timeout" in msg or "connection" in msg) and attempt < retries:
                 await asyncio.sleep(delay * attempt)
                 continue
             break
+    
+    # Don't fallback to global - just fail with user's configured provider
+    # This prevents using wrong API keys
+    print(f"[DEBUG] All attempts failed, returning fallback")
     return f"Analysis unavailable: {last_error}" if last_error else "Analysis unavailable"
 
 
@@ -922,6 +975,176 @@ async def update_password(payload: PasswordUpdate, current_user: User = Depends(
     return {"status": "ok"}
 
 
+@app.get("/api/profile/llm")
+async def get_llm_settings(current_user: User = Depends(get_current_user)):
+    """Get user LLM settings"""
+    from sqlalchemy import select
+    
+    async with SessionLocal() as session:
+        # Query by user_id, not primary key id
+        result = await session.execute(
+            select(UserLLMSettings).where(UserLLMSettings.user_id == current_user.id)
+        )
+        settings = result.scalar_one_or_none()
+        
+        if not settings:
+            return {
+                "provider": "gemini",
+                "gemini_api_key": None,
+                "gemini_model": None,
+                "openai_api_key": None,
+                "openai_model": None,
+                "openai_base_url": None,
+                "temperature": "0.2",
+                "max_tokens": "2048",
+            }
+        return {
+            "id": settings.id,
+            "user_id": settings.user_id,
+            "provider": settings.provider,
+            "gemini_api_key": settings.gemini_api_key,
+            "gemini_model": settings.gemini_model,
+            "openai_api_key": settings.openai_api_key,
+            "openai_model": settings.openai_model,
+            "openai_base_url": settings.openai_base_url,
+            "temperature": settings.temperature,
+            "max_tokens": settings.max_tokens,
+        }
+
+
+@app.put("/api/profile/llm")
+async def update_llm_settings(
+    payload: UserLLMSettingsUpdate,
+    current_user: User = Depends(get_current_user),
+):
+    """Update user LLM settings"""
+    from sqlalchemy import select
+    
+    async with SessionLocal() as session:
+        # Query by user_id, not primary key id
+        result = await session.execute(
+            select(UserLLMSettings).where(UserLLMSettings.user_id == current_user.id)
+        )
+        settings = result.scalar_one_or_none()
+        
+        if not settings:
+            # Create new settings
+            settings = UserLLMSettings(
+                id=str(uuid.uuid4()),
+                user_id=current_user.id,
+                provider=payload.provider,
+                gemini_api_key=payload.gemini_api_key,
+                gemini_model=payload.gemini_model,
+                openai_api_key=payload.openai_api_key,
+                openai_model=payload.openai_model,
+                openai_base_url=payload.openai_base_url,
+                temperature=payload.temperature,
+                max_tokens=payload.max_tokens,
+            )
+            session.add(settings)
+        else:
+            # Update existing settings
+            settings.provider = payload.provider
+            settings.gemini_api_key = payload.gemini_api_key
+            settings.gemini_model = payload.gemini_model
+            settings.openai_api_key = payload.openai_api_key
+            settings.openai_model = payload.openai_model
+            settings.openai_base_url = payload.openai_base_url
+            settings.temperature = payload.temperature
+            settings.max_tokens = payload.max_tokens
+        
+        await session.commit()
+    
+    return {"status": "ok"}
+
+
+@app.post("/api/profile/llm/test")
+async def test_llm_connection(
+    payload: UserLLMSettingsUpdate,
+    _current_user: User = Depends(get_current_user),
+):
+    """Test LLM provider connection by listing available models."""
+    provider = payload.provider
+
+    try:
+        if provider == "gemini":
+            api_key = payload.gemini_api_key or (GEMINI_KEYS_LIST[0] if GEMINI_KEYS_LIST else None)
+            if not api_key:
+                raise HTTPException(status_code=400, detail="Gemini API key is required")
+
+            client = genai.Client(api_key=api_key)
+            first_model = None
+            for model in client.models.list():
+                first_model = model
+                break
+
+            model_name = getattr(first_model, "name", None)
+            message = "Gemini connection successful"
+            if model_name:
+                message = f"Gemini connection successful (sample model: {model_name})"
+            return {"status": "ok", "provider": provider, "message": message}
+
+        if provider == "openai":
+            api_key = payload.openai_api_key or OPENAI_API_KEY
+            if not api_key:
+                raise HTTPException(status_code=400, detail="OpenAI API key is required")
+
+            client = AsyncOpenAI(api_key=api_key)
+            models = await client.models.list()
+            model_name = models.data[0].id if models.data else None
+            message = "OpenAI connection successful"
+            if model_name:
+                message = f"OpenAI connection successful (sample model: {model_name})"
+            return {"status": "ok", "provider": provider, "message": message}
+
+        if provider == "local":
+            import httpx
+            import json
+            
+            base_url = payload.openai_base_url or OPENAI_BASE_URL
+            if not base_url:
+                raise HTTPException(status_code=400, detail="Base URL is required for local provider")
+
+            api_key = payload.openai_api_key or "EMPTY"
+            print(f"[DEBUG] local test: Testing with api_key={'***' if api_key != 'EMPTY' else 'EMPTY'}, base_url={base_url}")
+            
+            # Try direct HTTP request like curl
+            headers = {
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json"
+            }
+            
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                try:
+                    response = await client.get(
+                        f"{base_url.rstrip('/')}/models",
+                        headers=headers
+                    )
+                    print(f"[DEBUG] local test: Response status: {response.status_code}")
+                    print(f"[DEBUG] local test: Response body: {response.text[:500]}")
+                    
+                    if response.status_code != 200:
+                        raise HTTPException(status_code=400, detail=f"API returned {response.status_code}: {response.text[:200]}")
+                    
+                    data = response.json()
+                    models = data.get("data", [])
+                    model_name = models[0]["id"] if models else None
+                    message = "Local provider connection successful"
+                    if model_name:
+                        message = f"Local provider connection successful (sample model: {model_name})"
+                    return {"status": "ok", "provider": provider, "message": message}
+                except httpx.RequestError as e:
+                    print(f"[DEBUG] local test: Request error: {e}")
+                    raise HTTPException(status_code=400, detail=f"Connection error: {str(e)}")
+
+        raise HTTPException(status_code=400, detail=f"Unsupported provider: {provider}")
+
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"Connection test failed: {exc}") from exc
+
+
 @app.post("/api/run")
 async def run_test(
     req: RunRequest,
@@ -935,7 +1158,10 @@ async def run_test(
     except UnsafeUrlError as exc:
         raise HTTPException(status_code=400, detail=f"Unsafe target url: {exc}") from exc
 
+    user_id = current_user.id
+
     async def event_stream():
+        nonlocal user_id
         run_id = str(uuid.uuid4())
         json_path = None
         tmp_dir = None
@@ -1006,7 +1232,7 @@ async def run_test(
         parsed_metrics["lighthouse"] = lighthouse_result
         yield "data: PROGRESS:lighthouse:done\n\n"
 
-        analysis = await analyze_with_retry(json.dumps(parsed_metrics))
+        analysis = await analyze_with_retry(json.dumps(parsed_metrics), user_id)
 
         pdf_path = os.path.join(RESULT_DIR, f"{run_id}-load.pdf")
         generate(pdf_path, req.project_name, safe_url, json.dumps(parsed_metrics), analysis)
@@ -1053,15 +1279,10 @@ async def run_js(
     if not validate_captcha(captcha_answer, captcha_token, captcha_timestamp):
         raise HTTPException(status_code=400, detail="Invalid captcha")
 
-    raw = await file.read()
-    if len(raw) > MAX_UPLOAD_BYTES:
-        raise HTTPException(status_code=413, detail="Upload too large")
-
-    decoded = raw.decode("utf-8", errors="ignore")
-    if is_malicious(decoded):
-        raise HTTPException(status_code=400, detail="Suspicious script detected")
+    user_id = current_user.id
 
     async def event_stream():
+        nonlocal user_id
         run_id = str(uuid.uuid4())
         target_url = extract_first_url(decoded)
         safe_target_url = None
@@ -1142,7 +1363,7 @@ async def run_js(
             parsed_metrics["lighthouse"] = lighthouse_result
             yield "data: PROGRESS:lighthouse:done\n\n"
 
-        analysis = await analyze_with_retry(json.dumps(parsed_metrics))
+        analysis = await analyze_with_retry(json.dumps(parsed_metrics), user_id)
 
         pdf_path = os.path.join(RESULT_DIR, f"{run_id}-load.pdf")
         generate(pdf_path, project_name, safe_target_url or "unknown", json.dumps(parsed_metrics), analysis)
@@ -1306,6 +1527,10 @@ async def download(
 
         if current_user.role != "admin" and result.user_id != current_user.id:
             raise HTTPException(status_code=403, detail="Forbidden")
+
+        # Check if PDF file exists before attempting to serve
+        if not result.pdf_path or not os.path.exists(result.pdf_path):
+            raise HTTPException(status_code=404, detail="PDF file not found")
 
         return FileResponse(
             path=result.pdf_path,

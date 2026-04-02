@@ -4,7 +4,12 @@ WORKDIR /app
 
 # Install system deps
 RUN apt-get update && \
-    apt-get install -y curl gnupg nodejs npm && \
+    apt-get install -y curl gnupg ca-certificates && \
+    rm -rf /var/lib/apt/lists/*
+
+# Install Node.js 22.x (required for Lighthouse 13.x)
+RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && \
+    apt-get install -y nodejs && \
     rm -rf /var/lib/apt/lists/*
 
 # Install k6

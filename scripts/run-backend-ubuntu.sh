@@ -155,7 +155,10 @@ ensure_env_file() {
 DATABASE_URL=mysql+aiomysql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}
 BACKEND_API_KEY=change_me
 BACKEND_ADMIN_KEY=change_me
+LLM_PROVIDER=gemini
 GEMINI_API_KEYS=comma_separated_keys
+OPENAI_API_KEY=
+OPENAI_BASE_URL=
 RESULT_DIR=./results
 CAPTCHA_SECRET=change_me
 CORS_ORIGINS=http://localhost:3000

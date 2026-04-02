@@ -58,11 +58,14 @@ Enterprise-grade Load Testing Intelligence Platform powered by:
 - Shows key metrics (FCP, LCP, CLS, TBT, TTI, Speed Index)
 - Included in API payloads and PDF
 
-## 🔹 AI Analysis (Gemini)
-- Multi API key rotation
-- Random key selection
-- Auto retry (429 / 503)
-- 3 retry attempts using different keys
+## 🔹 AI Analysis (Gemini, OpenAI, & Local LLM)
+- Support for Google Gemini, OpenAI, and OpenAI-compatible APIs (vLLM, Ollama, etc.)
+- Multi API key rotation for Gemini
+- Custom `base_url` support for local/private LLM providers
+- Async support for OpenAI-compatible clients
+- Auto retry (429 / 503) for Gemini
+- **Per-user LLM settings**: Users can configure their own API keys via the LLM Settings page
+- User settings override global configuration when provided
 
 ## 🔹 Database
 - MySQL 8
@@ -136,13 +139,20 @@ Admin bootstrap behavior:
 - If found but password differs from env, it rotates the password to match `INITIAL_ADMIN_PASSWORD`.
 - If found but role/email differ from env, it updates them.
 
+# LLM Provider (Gemini or OpenAI)
+LLM_PROVIDER=gemini
 # Gemini (Multiple Keys Supported)
 GEMINI_API_KEYS=key1,key2,key3
-# Use an available Gemini model id for your account/region.
-# Example: gemini-2.5-flash
 GEMINI_MODEL=gemini-2.5-flash
 GEMINI_MAX_TOKENS=8192
 GEMINI_TEMPERATURE=0.2
+
+# OpenAI / OpenAI-Compatible (vLLM, Ollama, etc.)
+OPENAI_API_KEY=sk-...
+OPENAI_MODEL=gpt-4o
+OPENAI_BASE_URL=http://localhost:8000/v1  # Optional: for vLLM/local providers
+OPENAI_MAX_TOKENS=2048
+OPENAI_TEMPERATURE=0.2
 
 # Security / SSRF
 ALLOWED_TARGET_PORTS=80,443
@@ -171,6 +181,11 @@ THRESHOLD_P90_MS=1500
 - **Administrator**: Can seed the first admin via `INITIAL_ADMIN_*` env vars, list accounts (`GET /api/auth/users`), and create new admins/users (`POST /api/auth/users`).
 - **Normal users**: Can only run load tests, upload scripts (if enabled), and view their personal results.
 - **Profile**: Users update their password via `PUT /api/profile/password`.
+- **LLM Settings**: Users can configure their own AI provider and API keys:
+  - `GET /api/profile/llm` - Get current user's LLM settings
+  - `PUT /api/profile/llm` - Update user's LLM settings
+  - Supported providers: `gemini`, `openai`, `local`
+  - When user provides their own API key, it overrides global configuration
 - **Auditing**: Every saved load test now stores `user_id`/`username` and exposes `run_by` inside the result JSON for easier filtering.
 
 # 🐳 Run with Docker

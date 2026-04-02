@@ -4,6 +4,23 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog, and this project follows Semantic Versioning.
 
+## [0.3.0] - 2026-03-18
+
+### Added
+- **Per-user LLM Settings**: Users can configure their own AI provider and API keys
+  - Supported providers: Google Gemini, OpenAI (api.openai.com), Local/OpenAI-Compatible (vLLM, Ollama)
+  - New API endpoints: `GET /api/profile/llm`, `PUT /api/profile/llm`
+  - New database table: `user_llm_settings`
+  - Frontend UI in dedicated LLM Settings page for easy configuration
+  - User settings override global configuration when provided
+  - Fallback to global env config if user doesn't set their own
+- **Dockerfile**: Updated to use Node.js 22.x (required for Lighthouse 13.x)
+
+### Changed
+- LLM module refactored to support per-user settings with backward compatibility
+- Both `/api/run` and `/api/runjs` endpoints now use user's LLM settings if configured
+- PDF generator now handles None/empty analysis gracefully and strips HTML tags from LLM output
+
 ## [0.2.0] - 2026-02-21
 
 ### Added

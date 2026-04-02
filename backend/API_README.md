@@ -158,4 +158,91 @@ curl -X POST $BASE/api/resetdata \
 
 ---
 
+# 7️⃣ Get User LLM Settings
+
+Retrieve the current user's LLM configuration (provider, API keys, model settings).
+
+```bash
+curl -X GET $BASE/api/profile/llm \
+  -H "x-api-key: $API_KEY" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+Example response:
+
+```json
+{
+  "provider": "gemini",
+  "gemini_api_key": null,
+  "gemini_model": null,
+  "openai_api_key": null,
+  "openai_model": null,
+  "openai_base_url": null,
+  "temperature": "0.2",
+  "max_tokens": "2048"
+}
+```
+
+---
+
+# 8️⃣ Update User LLM Settings
+
+Configure the user's preferred AI provider and API keys. When set, these override the global configuration.
+
+```bash
+curl -X PUT $BASE/api/profile/llm \
+  -H "x-api-key: $API_KEY" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "provider": "gemini",
+    "gemini_api_key": "your-gemini-key-here",
+    "gemini_model": "gemini-2.5-flash",
+    "temperature": "0.2",
+    "max_tokens": "2048"
+  }'
+```
+
+## Provider Options
+
+| Provider | Required Fields | Description |
+|----------|----------------|-------------|
+| `gemini` | `gemini_api_key` | Google Gemini API |
+| `openai` | `openai_api_key` | OpenAI API (api.openai.com) |
+| `local` | `openai_base_url`, `openai_model` | Local LLM (vLLM, Ollama, etc.) |
+
+### Example: OpenAI
+
+```bash
+curl -X PUT $BASE/api/profile/llm \
+  -H "x-api-key: $API_KEY" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "provider": "openai",
+    "openai_api_key": "sk-your-openai-key",
+    "openai_model": "gpt-4o",
+    "temperature": "0.2",
+    "max_tokens": "2048"
+  }'
+```
+
+### Example: Local LLM (vLLM/Ollama)
+
+```bash
+curl -X PUT $BASE/api/profile/llm \
+  -H "x-api-key: $API_KEY" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "provider": "local",
+    "openai_base_url": "http://localhost:8000/v1",
+    "openai_model": "llama3",
+    "temperature": "0.2",
+    "max_tokens": "2048"
+  }'
+```
+
+---
+
 End of API test documentation.

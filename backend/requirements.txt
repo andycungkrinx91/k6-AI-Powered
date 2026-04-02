@@ -6,6 +6,7 @@ aiofiles
 reportlab
 cryptography
 google-genai
+openai
 matplotlib
 numpy
 python-multipart

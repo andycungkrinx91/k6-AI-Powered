@@ -75,6 +75,51 @@ export async function updatePassword(payload: { current_password: string; new_pa
   )
 }
 
+export type UserLLMSettings = {
+  id?: string
+  user_id?: string
+  provider: "gemini" | "openai" | "local"
+  gemini_api_key: string | null
+  gemini_model: string | null
+  openai_api_key: string | null
+  openai_model: string | null
+  openai_base_url: string | null
+  temperature: string
+  max_tokens: string
+}
+
+export async function getLLMSettings(token: string): Promise<UserLLMSettings> {
+  return request("/api/profile/llm", {}, token)
+}
+
+export async function updateLLMSettings(payload: UserLLMSettings, token: string) {
+  return request(
+    "/api/profile/llm",
+    {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    },
+    token
+  )
+}
+
+export type LLMConnectionTestResponse = {
+  status: "ok"
+  provider: "gemini" | "openai" | "local"
+  message: string
+}
+
+export async function testLLMConnection(payload: UserLLMSettings, token: string): Promise<LLMConnectionTestResponse> {
+  return request(
+    "/api/profile/llm/test",
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+    },
+    token
+  )
+}
+
 // ================= RESULTS =================
 export async function getResults(limit = 100, offset = 0, token?: string) {
   return request(`/api/result/list?limit=${limit}&offset=${offset}`, {}, token)

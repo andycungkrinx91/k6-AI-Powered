@@ -10,6 +10,7 @@ import {
   Heart,
   User,
   Users,
+  Brain,
 } from "lucide-react"
 import { useAuth } from "@/context/AuthContext"
 import ThemeFontSwitcher from "@/components/ThemeFontSwitcher"
@@ -40,6 +41,7 @@ export default function Sidebar({
 
     if (user) {
       base.push({ href: "/profile", label: "Profile", icon: User })
+      base.push({ href: "/llm", label: "LLM Settings", icon: Brain })
     }
 
     if (user?.role === "admin") {

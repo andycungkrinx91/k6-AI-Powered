@@ -17,6 +17,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     pathname === "/load-test" ||
     pathname === "/users" ||
     pathname === "/profile" ||
+    pathname.startsWith("/llm") ||
     pathname.startsWith("/result")
   const isFullScreen = isAuthScreen || !isKnownAppRoute
 

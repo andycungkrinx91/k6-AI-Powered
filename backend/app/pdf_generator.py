@@ -875,18 +875,135 @@ def generate(path, project_name, url, structured_json, analysis):
     elements.append(SectionHeader("AI Engineering Analysis"))
     elements.append(Spacer(1, 0.6 * inch))
 
+    # Guard against None or empty analysis
+    if not analysis:
+        analysis = "No analysis available."
+    analysis = str(analysis) if not isinstance(analysis, str) else analysis
+
+    table_header_style = ParagraphStyle(
+        name="analysisTableHeader",
+        parent=body_style,
+        fontName="Montserrat-Bold",
+        fontSize=10,
+        leading=14,
+        alignment=TA_LEFT,
+    )
+
+    table_cell_style = ParagraphStyle(
+        name="analysisTableCell",
+        parent=body_style,
+        fontName="Montserrat",
+        fontSize=10,
+        leading=14,
+        alignment=TA_LEFT,
+    )
+
+    def _parse_markdown_table_row(row):
+        stripped = row.strip()
+        if "|" not in stripped:
+            return []
+
+        if stripped.startswith("|"):
+            stripped = stripped[1:]
+        if stripped.endswith("|"):
+            stripped = stripped[:-1]
+
+        cells = [cell.strip() for cell in stripped.split("|")]
+        return cells if len(cells) > 1 else []
+
+    def _is_markdown_table_separator(row):
+        cells = _parse_markdown_table_row(row)
+        if not cells:
+            return False
+        return all(re.match(r"^:?-{3,}:?$", cell) for cell in cells)
+
+    def _build_markdown_table(lines, start_idx):
+        header_cells = _parse_markdown_table_row(lines[start_idx])
+        if not (
+            header_cells
+            and start_idx + 1 < len(lines)
+            and _is_markdown_table_separator(lines[start_idx + 1])
+        ):
+            return None, start_idx
+
+        table_rows = [header_cells]
+        idx = start_idx + 2
+        while idx < len(lines):
+            row = lines[idx]
+            if not row.strip():
+                break
+
+            row_cells = _parse_markdown_table_row(row)
+            if not row_cells or _is_markdown_table_separator(row):
+                break
+
+            table_rows.append(row_cells)
+            idx += 1
+
+        col_count = max(len(row) for row in table_rows)
+        normalized_rows = [row + [""] * (col_count - len(row)) for row in table_rows]
+
+        def _safe_cell_text(cell):
+            text = str(cell).strip()
+            text = text.replace("&", "&amp;")
+            text = text.replace("<", "&lt;")
+            text = text.replace(">", "&gt;")
+            return text or "-"
+
+        table_data = []
+        for row_idx, row_cells in enumerate(normalized_rows):
+            style = table_header_style if row_idx == 0 else table_cell_style
+            table_data.append([
+                Paragraph(_safe_cell_text(cell), style) for cell in row_cells
+            ])
+
+        table_width = A4[0] - 120
+        col_width = table_width / col_count if col_count else table_width
+        md_table = Table(
+            table_data,
+            colWidths=[col_width] * col_count,
+            repeatRows=1,
+            hAlign="LEFT",
+        )
+        md_table.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#F3E8FF")),
+            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#FAF5FF")]),
+            ("BOX", (0, 0), (-1, -1), 0.45, colors.HexColor("#D8B4FE")),
+            ("LINEBELOW", (0, 0), (-1, -1), 0.25, colors.HexColor("#E9D5FF")),
+            ("LINEBELOW", (0, 0), (-1, 0), 0.8, colors.HexColor("#C084FC")),
+            ("LEFTPADDING", (0, 0), (-1, -1), 8),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+            ("TOPPADDING", (0, 0), (-1, -1), 6),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ]))
+
+        return md_table, idx
+
     clean = analysis.replace("`", "").replace("**", "")
 
-    for line in clean.split("\n"):
+    lines = clean.split("\n")
+    idx = 0
+    while idx < len(lines):
+        table, next_idx = _build_markdown_table(lines, idx)
+        if table:
+            elements.append(table)
+            elements.append(Spacer(1, 0.25 * inch))
+            idx = next_idx
+            continue
+
+        line = lines[idx]
         line = line.strip()
 
         if not line:
             elements.append(Spacer(1, 0.25 * inch))
+            idx += 1
             continue
 
         if line.startswith("## ") or line.startswith("### "):
             elements.append(Paragraph(line.replace("#", "").strip(), heading_style))
             elements.append(Spacer(1, 0.2 * inch))
+            idx += 1
             continue
 
         number_match = re.match(r"^(\d+\.)\s*(.*)", line)
@@ -899,6 +1016,7 @@ def generate(path, project_name, url, structured_json, analysis):
                 )
             )
             elements.append(Spacer(1, 0.2 * inch))
+            idx += 1
             continue
 
         if line.startswith("- ") or line.startswith("* "):
@@ -906,8 +1024,10 @@ def generate(path, project_name, url, structured_json, analysis):
                 Paragraph(line[2:], body_style, bulletText="•")
             )
             elements.append(Spacer(1, 0.2 * inch))
+            idx += 1
             continue
 
         elements.append(Paragraph(line, body_style))
+        idx += 1
 
     doc.build(elements)
