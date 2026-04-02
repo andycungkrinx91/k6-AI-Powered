@@ -348,6 +348,18 @@ POST `/api/resetdata`
 
 ---
 
+# 🧠 LLM Context Management
+
+For local/OpenAI-compatible LLM providers with limited context windows:
+
+- **Payload trimming**: Timeline data is automatically downsampled (max 30 buckets) before sending to LLM to fit context limits
+- **max_tokens capping**: Automatically capped at 6000 for local providers to prevent overflow
+- **Graceful degradation**: If payload still exceeds context after trimming, API will return clear error
+
+Context limit: 18336 tokens (Qwen3-30B)
+
+---
+
 # ⚙️ Scoring System
 
 Scoring is dynamic via `.env`:
@@ -386,7 +398,10 @@ Exit code 99 (threshold failure) is treated as valid execution.
 - Latency trends
 - Error trends
 - Scorecard breakdown
-- Executive AI analysis
+- Executive AI analysis with formatted sections:
+  - Bold section headers (1) Executive Summary, 2) Bottlenecks, etc.)
+  - Bullet points for Risks section
+  - Montserrat-Bold 14pt for section titles
 - Risk assessment
 - Optimization guidance
 

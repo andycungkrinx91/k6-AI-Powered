@@ -133,7 +133,7 @@ Runtime requirements (local dev):
 - Real‑time progress + step badges (k6, Security Headers, SSL, WPT, Lighthouse)
 - Streaming logs
 - AI‑generated analysis with retry on 429/503
-- Automated PDF report (performance + security)
+- Automated PDF report (performance + security) with formatted AI analysis sections
 
 ## 2️⃣ Script Upload Mode
 - Upload custom k6 scripts (max size configurable via `MAX_UPLOAD_BYTES`; backend default: 200000 bytes)
@@ -167,6 +167,11 @@ Runtime requirements (local dev):
 - Per-user settings override global configuration
 - Settings accessible from LLM Settings menu
 - Common options: temperature, max tokens, model selection
+
+## 6️⃣ LLM Context Management
+- Automatic timeline data downsampling (max 30 buckets) for large payloads
+- max_tokens capping for local LLM providers
+- Supports local vLLM servers with context limits up to 18336 tokens
 
 ## 7️⃣ Terminal UI (Themes + Fonts)
 

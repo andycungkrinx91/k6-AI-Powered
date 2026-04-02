@@ -4,6 +4,20 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog, and this project follows Semantic Versioning.
 
+## [0.4.0] - 2026-04-02
+
+### Added
+- **Docker Compose MySQL Healthcheck**: Backend now waits for MySQL to be healthy before starting, preventing connection errors on initial startup
+- **LLM Context Management**: Automatic payload trimming and max_tokens capping for local LLM providers with limited context windows
+  - Timeline data downsampled to max 30 buckets before sending to LLM
+  - max_tokens capped at 6000 for local providers to prevent context overflow
+
+### Changed
+- **PDF AI Engineering Analysis**: Improved formatting for numbered sections
+  - Section headers (1) Executive Summary, 2) Bottlenecks, etc.) now use Montserrat-Bold 14pt for better visibility
+  - Risks section (3) now displays as bullet points instead of tables
+- Documentation updated: README files and .env.example with latest features
+
 ## [0.3.0] - 2026-03-18
 
 ### Added
