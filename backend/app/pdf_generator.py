@@ -898,6 +898,17 @@ def generate(path, project_name, url, structured_json, analysis):
         alignment=TA_LEFT,
     )
 
+    section_header_style = ParagraphStyle(
+        name="analysisSectionHeader",
+        parent=body_style,
+        fontName="Montserrat-Bold",
+        fontSize=14,
+        leading=18,
+        alignment=TA_LEFT,
+        spaceBefore=12,
+        spaceAfter=6,
+    )
+
     def _parse_markdown_table_row(row):
         stripped = row.strip()
         if "|" not in stripped:
@@ -984,16 +995,34 @@ def generate(path, project_name, url, structured_json, analysis):
 
     lines = clean.split("\n")
     idx = 0
+    in_section_3 = False
     while idx < len(lines):
-        table, next_idx = _build_markdown_table(lines, idx)
-        if table:
-            elements.append(table)
-            elements.append(Spacer(1, 0.25 * inch))
-            idx = next_idx
-            continue
+        line = lines[idx].strip()
 
-        line = lines[idx]
-        line = line.strip()
+        # Track section 3 boundaries
+        if re.match(r"^3\)\s*Risks", line):
+            in_section_3 = True
+        elif re.match(r"^4\)\s*", line):
+            in_section_3 = False
+
+        if not in_section_3:
+            table, next_idx = _build_markdown_table(lines, idx)
+            if table:
+                elements.append(table)
+                elements.append(Spacer(1, 0.25 * inch))
+                idx = next_idx
+                continue
+        else:
+            # Section 3 - detect table rows and convert to bullets
+            if re.match(r"^\|.*\|", line):
+                # Parse markdown table row
+                cells = [c.strip() for c in line.split("|")[1:-1]]
+                if cells and any(cells):
+                    bullet_text = " | ".join(cells)
+                    elements.append(Paragraph(bullet_text, body_style, bulletText="•"))
+                    elements.append(Spacer(1, 0.15 * inch))
+                    idx += 1
+                    continue
 
         if not line:
             elements.append(Spacer(1, 0.25 * inch))
@@ -1006,12 +1035,12 @@ def generate(path, project_name, url, structured_json, analysis):
             idx += 1
             continue
 
-        number_match = re.match(r"^(\d+\.)\s*(.*)", line)
+        number_match = re.match(r"^(\d+[.)])\s*(.*)", line)
         if number_match:
             elements.append(
                 Paragraph(
                     number_match.group(2),
-                    body_style,
+                    section_header_style,
                     bulletText=number_match.group(1)
                 )
             )

@@ -1,4 +1,5 @@
 import asyncio
+import copy
 import json
 import subprocess
 import os
@@ -164,6 +165,38 @@ SECURITY_HEADERS = [
     "x-content-type-options",
     "x-frame-options",
 ]
+
+
+def _trim_metrics_for_llm(data: dict, max_timeline_buckets: int = 30) -> dict:
+    """
+    Reduce payload size by trimming timeline data while keeping key statistics.
+    """
+    trimmed = copy.deepcopy(data)
+
+    timeline = trimmed.get("timeline", {})
+    if not isinstance(timeline, dict):
+        return trimmed
+
+    def _sample_buckets(bucket_data: dict) -> dict:
+        if not isinstance(bucket_data, dict):
+            return bucket_data
+        if len(bucket_data) <= max_timeline_buckets:
+            return bucket_data
+
+        keys = sorted(bucket_data.keys())
+        step = max(1, (len(keys) + max_timeline_buckets - 1) // max_timeline_buckets)
+        sampled = {keys[i]: bucket_data[keys[i]] for i in range(0, len(keys), step)}
+
+        # Ensure the last bucket is included for end-of-test context.
+        last_key = keys[-1]
+        sampled[last_key] = bucket_data[last_key]
+        return sampled
+
+    timeline["latency"] = _sample_buckets(timeline.get("latency", {}))
+    timeline["requests"] = _sample_buckets(timeline.get("requests", {}))
+    timeline["checks"] = _sample_buckets(timeline.get("checks", {}))
+
+    return trimmed
 
 
 def hash_password(password: str) -> str:
@@ -1232,7 +1265,8 @@ async def run_test(
         parsed_metrics["lighthouse"] = lighthouse_result
         yield "data: PROGRESS:lighthouse:done\n\n"
 
-        analysis = await analyze_with_retry(json.dumps(parsed_metrics), user_id)
+        trimmed_metrics = _trim_metrics_for_llm(parsed_metrics, max_timeline_buckets=30)
+        analysis = await analyze_with_retry(json.dumps(trimmed_metrics), user_id)
 
         pdf_path = os.path.join(RESULT_DIR, f"{run_id}-load.pdf")
         generate(pdf_path, req.project_name, safe_url, json.dumps(parsed_metrics), analysis)

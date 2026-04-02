@@ -100,6 +100,11 @@ async def _analyze_with_openai_compatible(
         "Content-Type": "application/json"
     }
     
+    # Cap max_tokens to avoid context overflow
+    # Conservative: use very low max_tokens for local provider to ensure fit
+    max_context = 18336
+    max_tokens = min(max_tokens, 6000)  # Conservative cap for local provider
+    
     payload_data = {
         "model": model,
         "messages": [{"role": "user", "content": prompt}],
