@@ -229,6 +229,12 @@ services:
       MYSQL_PASSWORD: k6password
     ports:
       - "3306:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-prootPassword"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
 
   backend:
     build: .
@@ -236,12 +242,25 @@ services:
     volumes:
       - ./results:/app/results
     depends_on:
-      - mysql
+      mysql:
+        condition: service_healthy  # Wait for MySQL to be ready
     ports:
       - "8000:8000"
+
+  # Optional: Cloudflare Tunnel (set TUNNEL_TOKEN in .env to enable)
+  cf-tunnel:
+    image: cloudflare/cloudflared:latest
+    env_file: .env
+    command: tunnel --no-autoupdate run
+    depends_on:
+      - backend
+    restart: unless-stopped
 ```
 
-Use a dedicated host results folder and map it to the same path as `RESULT_DIR` inside the container (example above assumes `RESULT_DIR=/app/results`).
+Notes:
+- Backend waits for MySQL healthcheck before starting (prevents connection errors)
+- Use a dedicated host results folder and map it to the same path as `RESULT_DIR` inside the container
+- Comment out `cf-tunnel` service if not using Cloudflare Tunnel
 
 Run:
 

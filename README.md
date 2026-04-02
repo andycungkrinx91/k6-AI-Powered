@@ -254,6 +254,42 @@ bash scripts/run-frontend-ubuntu.sh
 
 ---
 
+# ☁️ Cloudflare Tunnel (Optional)
+
+For exposing services behind NAT/firewall without public IP:
+
+## Enable Tunnel
+
+1. Create a Cloudflare Zero Trust tunnel at https://one.dash.cloudflare.com
+2. Get the tunnel token
+3. Add to `backend/.env`:
+
+```bash
+TUNNEL_TOKEN=your_tunnel_token_here
+```
+
+4. The `cf-tunnel` service in docker-compose will automatically use it
+
+## Disable Tunnel (Development)
+
+Comment out or remove the `cf-tunnel` service from `docker-compose.yaml`:
+
+```yaml
+# cf-tunnel:
+#   <<: *default-logging
+#   image: cloudflare/cloudflared:latest
+#   ...
+```
+
+## How It Works
+
+- Uses `cloudflare/cloudflared` container
+- Connects to Cloudflare's edge using your tunnel token
+- Services are accessible via the tunnel's public URL
+- HTTP/2 transport enabled for better compatibility
+
+---
+
 # 🔐 Security Model
 
 - All API requests require the backend API key and a JWT bearing the logged-in identity; load tests record the user who ran them.
